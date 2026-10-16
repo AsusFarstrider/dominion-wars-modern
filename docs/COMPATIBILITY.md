@@ -1,6 +1,6 @@
 # Technical compatibility findings
 
-Validation date: 2026-07-19
+Original validation date: 2026-07-19; later dated checks are recorded below.
 
 This document records the evidence behind the current Dominion Wars Modernizer
 profile. The result is validated on one Windows 11 and AMD Radeon configuration;
@@ -15,9 +15,10 @@ three-monitor desktop.
 
 Observed working behavior included all introduction videos, menu mouse input,
 the first two Federation missions, the beginning of the first Dominion mission,
-and a clean Quit. Windows recorded no application fault on the final packaged
-launcher test, DDrawCompat detached successfully, and the original 2560×1440
-desktop mode was restored.
+and a later continuous session covering the first four missions (the first three
+completed and the fourth played until defeat). Windows recorded no application
+fault on the final packaged launcher or longer gameplay tests, DDrawCompat
+detached successfully, and the original 2560×1440 desktop mode was restored.
 
 ## Known-good profile
 
@@ -87,6 +88,132 @@ normally and Quit produced a successful DDrawCompat detach with no Windows crash
 event. This setting is validated for the tested RX 6800 XT; its behavior on other
 vendors and drivers still needs evidence.
 
+The 2026-10-13 retest on Windows 11 Home build 26300 / RX 6800 XT driver
+32.0.21045.5002 again reached a rendered mission with `ForceD3D9On12 = off`, but
+ended with access violation `0xC0000005`. Windows event 1000 names
+`AMDXN32.DLL+0x00BECC8E` (version 32.0.21045.5002). The launcher restored the
+desktop and the test harness restored the exact baseline profile. This reinforces
+retaining the translated path on this tested AMD configuration; it does not
+establish a preferred backend for every AMD driver, NVIDIA or Intel system.
+
+## Save-load failure investigation
+
+On 2026-10-13, a newly written AutoSave crashed on reload with the exact baseline
+profile and translated backend still enabled. Windows reports
+`ds9dw.exe+0x1DCE8`, exception `0xC0000005`; the dump shows an invalid read through
+ESI at `test byte ptr [esi+4], 0x80`. This is a game-code fault, distinct from the
+native-backend AMD driver fault. The underlying reason for the invalid pointer is
+not established, and successful wrapper detach does not make this a clean exit.
+
+The save and crash dump are preserved locally. The unchanged save loaded cleanly
+from a fresh process's main menu and that process exited with code 0. Matching
+file hashes argue against a consistently unreadable save; preceding runtime
+state or the save/reload sequence remains under investigation. A second process
+also loaded the save both from the main menu and from inside the mission without
+an intervening save, then exited with code 0. Repeated loading alone did not
+reproduce the fault. Writing a new slot and immediately reloading it is the next
+control; an overwrite-specific cause is not established. That new-slot control
+and a subsequent new-mission / AutoSave-overwrite / immediate-reload repeat both
+passed, with exit code 0 and unchanged baseline settings. The original failure
+therefore remains unresolved and unreproduced by the controls, not fixed.
+
+The original dump's window-procedure arguments identify message `0x0202`, which
+is [WM_LBUTTONUP](https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-lbuttonup),
+with wParam 0 and client coordinates (640,480). Stack returns `0x00433991` and
+`0x0041DF9E` link the fault to an indirect handler and recursive object traversal;
+the code tests rectangles/flags and invokes callbacks before using the object
+pointer again. Without symbols, this is an inferred UI-hit-test/callback path,
+not a proven function name or heap-lifetime diagnosis. UI lifetime/reentrancy or
+timing is a lead to investigate, not justification to suppress mouse messages
+or assume the save file is corrupt. No save repair, game-executable patch or
+speculative compatibility setting has been applied.
+
+## Alt+Tab failure investigation
+
+On 2026-10-10, the 0.4 candidate baseline failed to return from Alt+Tab on Windows
+11 Home build 26300 with RX 6800 XT driver 32.0.21045.5002 and three displays.
+The game displayed `Error with Screen RestoreSurfaces() on primary:
+DDERR_NOEXCLUSIVEMODE`. The single-player rendering recipe still worked before
+switching away. This is a separate known limitation, not a corrected condition.
+
+Three isolated settings in the disposable installation failed:
+
+- `noactivateapp(1)` and `noactivateapp(0)` avoided the original error but left
+  an apparently transparent/non-redrawing window and upper-left mouse confinement.
+- `keepvidmem(1)` reproduced the original primary-surface restore error.
+
+None was promoted to the packaged profile. A short run with the unchanged release
+DLL and baseline settings plus `LogLevel = debug` produced call-level evidence:
+
+1. On deactivation, the game called `RestoreDisplayMode`; its main window then
+   became minimized, with coordinates around -32000 and style `0xb4000000`.
+2. On return, it received `WM_ACTIVATEAPP` while still minimized.
+3. It then received `WM_ACTIVATE` with wParam `0x00200001`: active status in the
+   low word, nonzero minimized state in the high word. Microsoft's
+   [WM_ACTIVATE reference](https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-activate)
+   defines these fields.
+4. While handling that message, it called `SetDisplayMode(800,600,16)` (success),
+   followed by `IDirectDrawSurface4::Restore` on its primary surface. The wrapper
+   entered `RealPrimarySurface::restore`, returned `0x887600e1`
+   (`DDERR_NOEXCLUSIVEMODE`), and the game immediately displayed the error dialog.
+   Its main window was still minimized at the dialog call.
+
+Read-only disassembly of the hash-verified North American 1.04 executable identifies
+its window procedure at VA `0x00433620`. The WM_ACTIVATE jump-table entry dispatches
+to `0x004336A8`, shared with WM_ACTIVATEAPP. The active branch checks the low word
+of wParam and invokes an activation callback without first checking the minimized
+high word. No executable bytes were changed.
+
+This establishes that a restore attempt occurred before the window had been
+restored in this reproduction. It does not yet prove which component should
+correct the sequence or that a particular message hook will fix all return paths.
+The next investigation should address activation/restoration ordering rather than
+add filtering, CPU, texture-capability or driver-performance settings. It must
+check keyboard Alt+Tab, taskbar return, menu and mission input, pause behavior and
+normal exit. The packaged profile still has no validated focus-loss correction.
+
+The diagnostic harness restored the byte-identical packaged profile and disabled
+debug logging after exit. The launcher restored the original desktop mode. The
+game's zero exit code did not mean that the focus-loss test succeeded.
+
+On 2026-10-14, a separate private build of DDrawCompat 0.7.1 combined
+`noactivateapp(0)` with suppression of the verified NA 1.04 game's `WM_ACTIVATE`
+handler and retention of its borderless window instead of automatic minimization.
+The user confirmed focus could leave the game and returning restored normal
+rendering and mouse input. A keyboard screenshot taken while the game was focused
+captured gameplay. However, the visible fullscreen image flickered while
+unfocused. This is partial progress, not an accepted fix; background pause/input
+and other return paths are not yet validated. The run exited with code 0 and
+the launcher reported the original desktop mode restored (`AlreadyRestored`).
+
+The second private revision skipped presentation while unfocused. The user
+confirmed that this stopped the flicker and that automatic pause does not work.
+The run exited cleanly with original desktop restoration reported. This is still
+not a packaged or broadly validated fix. A third opt-in revision adds minimizing,
+original-desktop restoration and reapplying the game display before window return;
+its first run safely declined to arm. On 2026-10-15, a native display read showed
+2560x1440@165 during gameplay despite the logged initial 1280x960@165. Upstream
+`Win32/DisplayMode.cpp::installHooks` resets the physical display to registry
+settings before installing display hooks; the defaults then present at desktop
+resolution. The 1280x960 launcher step is therefore an initialization mode, not
+proof of a persistent physical game mode. Revision 3b accepts the exact original
+native mode or the known initialization mode and skips redundant changes. Its
+short real test received an overall pass from the user on 2026-10-15. The log
+confirms two minimize/return cycles and clean exit/desktop cleanup. Original and
+game-native modes both measured 2560x1440@165, so no physical mode change was
+required; the different-mode path remains unvalidated. Automatic pause is not
+supported, and this short result on one system is not broad compatibility
+validation. See the [focus source and profile notes](../third_party/DDrawCompat-focus/README.md)
+for gates, source provenance and test procedure. No experimental DLL or setting
+was promoted during those prototype tests. The 0.5.0-alpha candidate now includes
+the exact passed DLL as a separately pinned, per-run opt-in. Stock baseline
+defaults and the normal working installation remain unchanged. On 2026-10-16 the
+fresh extracted package passed the user-confirmed baseline mission/save-load/quit
+test and the optional focus-mode regression. Logs confirm two packaged focus
+minimize/return cycles, clean exit, exact stock-wrapper/profile restoration and
+removal of the pending swap record. Other hardware, different physical modes and
+longer focus sessions remain separate requirements.
+
 ## Experiment summary
 
 | Experiment | Result |
@@ -103,6 +230,16 @@ vendors and drivers still needs evidence.
 | Add D3D9On12 | Dominion mission 1 ran; Quit detached cleanly with no crash event |
 
 ## Scope
+
+The candidate launcher now has driver-tested narrow display fallbacks,
+selectable graphics paths, launch diagnostics, an independent guarded recovery
+helper, reversible local-profile reset, and a session lock. These changes
+do not alter the POW2 texture workaround or establish new gameplay coverage.
+Candidate 0.3 explicitly pins DDrawCompat's existing enabled, borderless,
+application-aspect defaults. Narrow widescreen fallbacks rely on the reported
+1600-pixel input threshold and aspect preservation; they are hypotheses awaiting
+gameplay testing, not an additional proven configuration.
+See [broader-hardware work](PORTABILITY.md) for evidence and remaining tests.
 
 Multiplayer is not a release gate. GameSpy-era Internet service is outside the
 current target, and LAN/direct-IP work is deferred. The current target is a

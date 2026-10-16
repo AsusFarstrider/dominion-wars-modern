@@ -22,11 +22,13 @@ param(
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 
-$script:ProductVersion = '0.1.0-alpha'
+$script:ProductVersion = '0.5.0-alpha'
 $script:Exe101Hash = '62EB159F40CE580308130DD223ABF12A1EF9A00C2BD93B76ABEFF1FC1044CB25'
 $script:Exe104Hash = '03C20A3535D0209111FF9F3B90EBA403E059DF2BE7E784D2746ABF1535C1BE6A'
 $script:PatchHash = 'BB938C4CD1CC8484D5F14978065FB96431843A5304C5078D65F0C32706F904EC'
 $script:CabExtractorHash = '1181AE0DADA52EA5A5990D11F966E5986BF0A01614D2D5E5AD63B7C79E29FA29'
+$script:DDrawCompatHash = 'F75F0AC48D2782F225C483DC2F1142303A513E8DD8A60793891ADE89F64755EA'
+$script:FocusWrapperHash = '3AA11B1C81A21C6EF5FB85D2DC31DEEC7EB8217F637094E9ED7B9F6D6BC90490'
 $script:CabHashes = [ordered]@{
     'data1.hdr' = '36342573E789423B515E9492DEC33B2DF314BE93B2473CD74D88D890B204544A'
     'data1.cab' = 'A3A08ED1D8AC74FB70FE4D498C4C3BBFFF229F23E512B80A731F78BA8D3CD185'
@@ -35,10 +37,26 @@ $script:CabHashes = [ordered]@{
 $script:PayloadRoot = Join-Path $PSScriptRoot 'payload'
 $script:ManagedNames = @(
     'ddraw.dll',
+    'DDrawCompat-Focus.dll',
+    'DominionWarsFocus.psm1',
+    'Play Dominion Wars - Experimental Alt-Tab.cmd',
     'DDrawCompat-ds9dw.ini',
     'DDrawCompat-LICENSE.txt',
     'Launch-DominionWars.ps1',
-    'Play Dominion Wars.cmd'
+    'Play Dominion Wars.cmd',
+    'DominionWarsLauncher.psm1',
+    'Play Dominion Wars - Native Graphics.cmd',
+    'Play Dominion Wars - D3D9On12 Graphics.cmd',
+    'Diagnose Dominion Wars.cmd',
+    'Restore-DominionWarsDesktop.ps1',
+    'Recover Dominion Wars Desktop.cmd',
+    'Play Dominion Wars - 60 Hz.cmd',
+    'Reset Dominion Wars Compatibility.cmd',
+    'Undo Dominion Wars Compatibility Reset.cmd',
+    'Play Dominion Wars - Baseline.cmd',
+    'Play Dominion Wars - Sharper.cmd',
+    'Play Dominion Wars - Enhanced 3D.cmd',
+    'Play Dominion Wars - Resource-saving.cmd'
 )
 
 function Get-NormalizedPath {
@@ -51,7 +69,21 @@ function Get-NormalizedPath {
 
 function Get-Sha256 {
     param([Parameter(Mandatory = $true)][string]$Path)
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToUpperInvariant()
+    $stream = [IO.File]::OpenRead($Path)
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-', '') }
+    finally { $algorithm.Dispose(); $stream.Dispose() }
+}
+
+function Assert-GameNotRunning {
+    param([string]$GameRoot)
+    foreach ($process in @(Get-Process -Name ds9dw -ErrorAction SilentlyContinue)) {
+        try { $runningRoot = Split-Path -Parent $process.Path }
+        catch { throw 'Cannot inspect a running Dominion Wars process. Close the game before modifying an installation.' }
+        if (-not $runningRoot -or (Get-NormalizedPath $runningRoot) -eq $GameRoot) {
+            throw 'Close Dominion Wars before installing, repairing, or removing compatibility files in this directory.'
+        }
+    }
 }
 
 function Get-GameVersion {
@@ -341,6 +373,30 @@ function Copy-GameTreeTransactional {
 function Install-ManagedFiles {
     param([Parameter(Mandatory = $true)][string]$GameRoot)
 
+    # Preflight the entire payload before replacing any installed file.
+    foreach ($name in $script:ManagedNames) {
+        if (-not (Test-Path -LiteralPath (Join-Path $script:PayloadRoot $name) -PathType Leaf)) {
+            throw "Modernizer payload is incomplete: '$name' is missing."
+        }
+    }
+    Assert-FileHash -Path (Join-Path $script:PayloadRoot 'ddraw.dll') `
+        -Expected $script:DDrawCompatHash -Description 'Bundled DDrawCompat 0.7.1'
+    Assert-FileHash -Path (Join-Path $script:PayloadRoot 'DDrawCompat-Focus.dll') `
+        -Expected $script:FocusWrapperHash -Description 'Optional DDrawCompat focus build'
+    foreach ($name in $script:ManagedNames) {
+        $target = Join-Path $GameRoot $name
+        if (Test-Path -LiteralPath $target -PathType Leaf) {
+            try {
+                $handle = [IO.File]::Open($target, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+                $handle.Dispose()
+            }
+            catch { throw "Cannot replace '$name'; it may be locked or read-only. No managed files have been changed. $($_.Exception.Message)" }
+        }
+    }
+
+    Import-Module (Join-Path $script:PayloadRoot 'DominionWarsFocus.psm1') -Force
+    $focusRecovery = Restore-DominionWarsFocusSession -GameRoot $GameRoot -AllowConflicts
+    if ($focusRecovery -and $focusRecovery.PreservedChanges) { Write-Warning 'Repair/install is replacing changed compatibility files; interrupted focus backups remain in .dw-launcher\focus-backups.' }
     $paths = Get-StatePaths $GameRoot
     New-Item -ItemType Directory -Path $paths.Backups -Force | Out-Null
     $oldState = Read-State $GameRoot
@@ -383,11 +439,46 @@ function Install-ManagedFiles {
     return $records
 }
 
-function Install-DesktopShortcut {
-    param([Parameter(Mandatory = $true)][string]$GameRoot)
+function Test-OwnedDesktopShortcut {
+    param([string]$Path, [string]$GameRoot, $State)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    if ($State -and $State.PSObject.Properties.Name -contains 'DesktopShortcutHash' -and $State.DesktopShortcutHash) {
+        return (Get-Sha256 $Path) -eq $State.DesktopShortcutHash
+    }
+    # Legacy schema has no recorded shortcut hash. Check its actual target.
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($Path)
+    return $shortcut.TargetPath -eq (Join-Path $GameRoot 'Play Dominion Wars.cmd') -and
+        $shortcut.WorkingDirectory -eq $GameRoot -and -not $shortcut.Arguments
+}
 
-    $desktop = [Environment]::GetFolderPath('Desktop')
-    $shortcutPath = Join-Path $desktop 'Dominion Wars.lnk'
+function Install-DesktopShortcut {
+    param([Parameter(Mandatory = $true)][string]$GameRoot,
+        [string]$DesktopDirectory = [Environment]::GetFolderPath('Desktop'))
+
+    $shortcutPath = Join-Path $DesktopDirectory 'Dominion Wars.lnk'
+    $oldState = Read-State $GameRoot
+    $backupName = $null
+    if ($oldState -and $oldState.PSObject.Properties.Name -contains 'DesktopShortcutBackupName') {
+        $backupName = $oldState.DesktopShortcutBackupName
+    }
+    if (Test-Path -LiteralPath $shortcutPath -PathType Leaf) {
+        if ($oldState -and $oldState.DesktopShortcut -eq $shortcutPath) {
+            if (-not (Test-OwnedDesktopShortcut -Path $shortcutPath -GameRoot $GameRoot -State $oldState)) {
+                throw 'The desktop shortcut changed since installation. Refusing to replace it; use -NoDesktopShortcut or retain your modified shortcut.'
+            }
+        }
+        else {
+            $paths = Get-StatePaths $GameRoot
+            $backupName = 'DesktopShortcut.original.lnk'
+            New-Item -ItemType Directory -Path $paths.Backups -Force | Out-Null
+            $backupPath = Join-Path $paths.Backups $backupName
+            if (Test-Path -LiteralPath $backupPath) {
+                if ((Get-Sha256 $backupPath) -ne (Get-Sha256 $shortcutPath)) { throw 'An earlier desktop shortcut backup exists. Refusing to overwrite it.' }
+            }
+            else { Copy-Item -LiteralPath $shortcutPath -Destination $backupPath }
+        }
+    }
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut($shortcutPath)
     $shortcut.TargetPath = Join-Path $GameRoot 'Play Dominion Wars.cmd'
@@ -396,7 +487,31 @@ function Install-DesktopShortcut {
     $shortcut.IconLocation = "$icon,0"
     $shortcut.Description = 'Launch Dominion Wars with modern Windows compatibility fixes'
     $shortcut.Save()
-    return $shortcutPath
+    return [pscustomobject]@{ Path = $shortcutPath; Hash = Get-Sha256 $shortcutPath; BackupName = $backupName }
+}
+
+function Remove-DesktopShortcut {
+    param([string]$GameRoot, $State)
+    if (-not $State.DesktopShortcut) { return }
+    $path = [string]$State.DesktopShortcut
+    $paths = Get-StatePaths $GameRoot
+    $backup = $null
+    if ($State.PSObject.Properties.Name -contains 'DesktopShortcutBackupName' -and $State.DesktopShortcutBackupName) {
+        if ($State.DesktopShortcutBackupName -ne 'DesktopShortcut.original.lnk') { throw 'Unrecognized desktop shortcut backup name.' }
+        $backup = Join-Path $paths.Backups $State.DesktopShortcutBackupName
+    }
+    if (-not (Test-Path -LiteralPath $path) -or (Test-OwnedDesktopShortcut -Path $path -GameRoot $GameRoot -State $State)) {
+        if ($backup -and (Test-Path -LiteralPath $backup -PathType Leaf)) { Copy-Item -LiteralPath $backup -Destination $path -Force }
+        elseif (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path }
+    }
+    else {
+        Write-Warning 'Keeping the modified desktop shortcut.'
+        if ($backup -and (Test-Path -LiteralPath $backup -PathType Leaf)) {
+            $recovered = Join-Path (Split-Path -Parent $path) ('Dominion Wars (before modernizer - ' + [guid]::NewGuid().ToString('N').Substring(0, 8) + ').lnk')
+            Copy-Item -LiteralPath $backup -Destination $recovered
+            Write-Warning "Original shortcut preserved separately: $recovered"
+        }
+    }
 }
 
 function Show-Status {
@@ -419,6 +534,7 @@ function Show-Status {
 }
 
 $destinationPath = Get-NormalizedPath $Destination
+if ($Action -ne 'Status') { Assert-GameNotRunning -GameRoot $destinationPath }
 
 switch ($Action) {
     'Status' {
@@ -467,9 +583,24 @@ switch ($Action) {
 
         Assert-CompleteGameTree $destinationPath
         if ($PSCmdlet.ShouldProcess($destinationPath, 'Install Dominion Wars modern compatibility files')) {
+            $previousState = Read-State $destinationPath
+            if (-not $NoDesktopShortcut -and $previousState -and $previousState.DesktopShortcut -and
+                (Test-Path -LiteralPath $previousState.DesktopShortcut -PathType Leaf) -and
+                -not (Test-OwnedDesktopShortcut -Path $previousState.DesktopShortcut -GameRoot $destinationPath -State $previousState)) {
+                throw 'The existing desktop shortcut was modified. Use -NoDesktopShortcut to preserve it during installation.'
+            }
             $records = Install-ManagedFiles $destinationPath
             $shortcutPath = $null
-            if (-not $NoDesktopShortcut) { $shortcutPath = Install-DesktopShortcut $destinationPath }
+            $shortcutHash = $null; $shortcutBackup = $null
+            if (-not $NoDesktopShortcut) {
+                $shortcut = Install-DesktopShortcut $destinationPath
+                $shortcutPath = $shortcut.Path; $shortcutHash = $shortcut.Hash; $shortcutBackup = $shortcut.BackupName
+            }
+            elseif ($previousState) {
+                $shortcutPath = $previousState.DesktopShortcut
+                if ($previousState.PSObject.Properties.Name -contains 'DesktopShortcutHash') { $shortcutHash = $previousState.DesktopShortcutHash }
+                if ($previousState.PSObject.Properties.Name -contains 'DesktopShortcutBackupName') { $shortcutBackup = $previousState.DesktopShortcutBackupName }
+            }
             $state = [ordered]@{
                 SchemaVersion = 1
                 ModernizerVersion = $script:ProductVersion
@@ -478,6 +609,8 @@ switch ($Action) {
                 GameExecutableHash = $script:Exe104Hash
                 Destination = $destinationPath
                 DesktopShortcut = $shortcutPath
+                DesktopShortcutHash = $shortcutHash
+                DesktopShortcutBackupName = $shortcutBackup
                 ManagedFiles = $records
             }
             Write-State -GameRoot $destinationPath -State $state
@@ -497,6 +630,15 @@ switch ($Action) {
             $state = Read-State $destinationPath
             $state.ManagedFiles = $records
             $state.ModernizerVersion = $script:ProductVersion
+            if ($state.DesktopShortcut -and -not $NoDesktopShortcut) {
+                if (-not (Test-Path -LiteralPath $state.DesktopShortcut) -or
+                    (Test-OwnedDesktopShortcut -Path $state.DesktopShortcut -GameRoot $destinationPath -State $state)) {
+                    $shortcut = Install-DesktopShortcut -GameRoot $destinationPath -DesktopDirectory (Split-Path -Parent $state.DesktopShortcut)
+                    $state | Add-Member -NotePropertyName DesktopShortcutHash -NotePropertyValue $shortcut.Hash -Force
+                    $state | Add-Member -NotePropertyName DesktopShortcutBackupName -NotePropertyValue $shortcut.BackupName -Force
+                }
+                else { Write-Warning 'Keeping the modified desktop shortcut during repair.' }
+            }
             $state | Add-Member -NotePropertyName RepairedUtc `
                 -NotePropertyValue ([DateTime]::UtcNow.ToString('o')) -Force
             Write-State -GameRoot $destinationPath -State $state
@@ -509,6 +651,8 @@ switch ($Action) {
         if (-not $state) { throw 'The modernizer is not installed in this directory.' }
         $paths = Get-StatePaths $destinationPath
         if ($PSCmdlet.ShouldProcess($destinationPath, 'Remove the modernizer and restore replaced files')) {
+            Import-Module (Join-Path $script:PayloadRoot 'DominionWarsFocus.psm1') -Force
+            $null = Restore-DominionWarsFocusSession -GameRoot $destinationPath -AllowConflicts
             foreach ($record in $state.ManagedFiles) {
                 $target = Join-Path $destinationPath ([string]$record.Name)
                 $backup = if ($record.BackupName) { Join-Path $paths.Backups ([string]$record.BackupName) } else { $null }
@@ -525,9 +669,7 @@ switch ($Action) {
                     }
                 }
             }
-            if ($state.DesktopShortcut -and (Test-Path -LiteralPath ([string]$state.DesktopShortcut))) {
-                Remove-Item -LiteralPath ([string]$state.DesktopShortcut) -Force
-            }
+            Remove-DesktopShortcut -GameRoot $destinationPath -State $state
             Remove-Item -LiteralPath $paths.Root -Recurse -Force
         }
         Show-Status $destinationPath
