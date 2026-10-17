@@ -17,9 +17,17 @@ rendering code.
 
 ## Validated configuration
 
-The **0.5.0-alpha candidate** adds a separately selected experimental Alt+Tab
+The **0.5.0-alpha prerelease** adds a separately selected experimental Alt+Tab
 launcher. The normal shortcut keeps stock DDrawCompat and the baseline behavior.
 New-system testers should follow the [clean-install testing guide](docs/NEW-SYSTEM-TESTING.md).
+
+The **0.6.0-alpha prerelease** is an installer-only reliability
+update. It adds stage/activity reporting, persistent installation logs and an
+isolated cabinet extractor. The first physical-CD test completed successfully
+after Esc released a console-selection pause near the shortcut stage. The next
+candidate adds a temporary console QuickEdit safeguard. The user-reported
+click/focus test passed on the Windows 10 machine, with uninterrupted log updates
+and exact console-mode restoration. The download instructions below refer to 0.6.0-alpha.
 
 The current known-good result is limited to:
 
@@ -45,9 +53,17 @@ longer gameplay validation above; see [TESTING.md](TESTING.md) for the distincti
 The 0.4.0-alpha candidate has also had a short baseline gameplay test on that
 newer build/driver, but Alt+Tab failed. Controlled launcher-termination and
 orphaned-desktop recovery checks passed on this system; fallback-mode gameplay
-and NVIDIA/Intel systems still need testing.
+and broader NVIDIA/Intel coverage still need testing.
 The 0.4.0-alpha candidate adds optional per-run visual/resource-saving presets;
 these also have automated checks only, not verified image-quality or performance gains.
+
+A second-system **0.5.0-alpha smoke test** reached the first mission briefly on
+Windows 10 Home build 19045, an Intel i5-3570K and NVIDIA GeForce GTX 670
+(driver 30.0.14.7514). The physical-CD installation stalled after media detection
+and only continued after the user pressed Ctrl+C. This is evidence of gameplay
+startup on that configuration, not a clean installer pass or long-session
+stability validation. The installer stall is being addressed in development;
+Ctrl+C is not a recommended workaround.
 
 ## What this installer does
 
@@ -121,8 +137,8 @@ unmodified game requires its disc. No disc image is included in the download.
 
 ## Installation
 
-1. Open the [0.5.0-alpha prerelease](https://github.com/AsusFarstrider/dominion-wars-modern/releases/tag/v0.5.0-alpha)
-   and download its attached **`dominion-wars-modernizer-0.5.0-alpha.zip`** asset.
+1. Open the [0.6.0-alpha prerelease](https://github.com/AsusFarstrider/dominion-wars-modern/releases/tag/v0.6.0-alpha)
+   and download its attached **`dominion-wars-modernizer-0.6.0-alpha.zip`** asset.
    Use that tested package rather than the automatically generated **Source code**
    ZIP or **Code → Download ZIP**.
 2. Extract the downloaded ZIP completely. Do not run the installer from inside
@@ -348,12 +364,66 @@ them. No game files or saves are removed.
   Microsoft Defender, SmartScreen, or third-party antivirus warnings.
 - GPU driver and Windows updates can change legacy DirectDraw/Direct3D behavior.
   A previously working configuration may need to be retested after an update.
-- NVIDIA, Intel, other AMD GPUs, single-monitor systems, unusual display scaling,
-  and Windows 10 have not yet received equivalent validation.
+- Other GPUs, Intel integrated graphics, unusual display scaling, and Windows 10
+  have not received equivalent longer-session validation. The brief GTX 670 /
+  Windows 10 result above does not establish broad vendor or OS support.
 - LAN or direct-IP multiplayer investigation is deferred to a separate optional
   phase.
 
 ## Troubleshooting
+
+### Installation activity and logs (0.6.0-alpha)
+
+The installer prints the current stage and, during hashing/copying,
+the current file, bytes processed, percentage where measurable, and elapsed time.
+Long operations report approximately every five seconds. Extraction reports
+observed output/diagnostic bytes rather than an invented percentage. After sixty
+seconds without measured byte changes it warns about the lack of progress;
+this does not prove a freeze, and slow optical-disc reads are not automatically
+terminated. The official patch stage explicitly waits for its interactive prompts.
+
+Installation, repair and removal logs are stored outside the game directory:
+
+```text
+%LOCALAPPDATA%\Dominion Wars Modernizer\InstallLogs
+```
+
+To open this folder, press **Win+R**, paste that path and press Enter. Each run
+gets a timestamped log. Extraction also produces separate `.stdout.log` and
+`.stderr.log` files; the main log identifies the relevant files. These survive
+failed-install staging cleanup and modernizer removal. No logs are uploaded.
+They are not automatically rotated; you may delete old logs after reviewing them.
+Include the latest run's log and its referenced extractor logs in an installer
+bug report. They may contain local paths; review them before sharing.
+
+Do not press Ctrl+C to make installation advance: it requests cancellation.
+During verification/copying, cancellation waits for an outstanding Windows file
+read/write to return before cleaning up. During extraction it stops only the
+helper launched for that operation. For the interactive official updater, close
+its window and wait; the modernizer will not delete staging while that updater
+is still running. Closing the console forcibly or powering off bypasses normal
+cleanup. A console selection can pause visible updates; press **Esc** to leave
+selection mode. The current candidate attempts to disable mouse-selection
+QuickEdit temporarily in the install/repair/removal console and restores the
+original mode afterward, unless another actor changed it. It does not change
+Windows-wide console preferences or Ctrl+C handling. Non-console hosts are left
+alone, and a refused safeguard is reported rather than failing installation.
+This addresses classic console mouse selection, not every terminal host or
+explicit keyboard Mark mode. Background file work/extraction also stays isolated
+from console output. Without an effective guard, selection can still pause
+visible messages and the next stage until selection ends.
+The safeguard uses the documented [Windows console-mode API](https://learn.microsoft.com/en-us/windows/console/setconsolemode).
+
+The double-click installer requires an explicit completion marker before showing
+success, not just a zero process exit code. If compatibility setup fails after
+the verified game directory was committed, that directory may remain; retain
+the logs and report the error rather than assuming the install was rolled back.
+
+The published 0.5.0-alpha package does **not** have these installer logs or
+progress changes. If reporting that version's silent wait, include a screenshot,
+elapsed time, and whether you used a physical CD or mounted image.
+
+### Game and launcher logs
 
 The default game and log directory is:
 

@@ -14,6 +14,12 @@ param(
 
     [string]$Destination = (Join-Path $env:LOCALAPPDATA 'Dominion Wars'),
 
+    [string]$LogDirectory = (Join-Path $env:LOCALAPPDATA 'Dominion Wars Modernizer\InstallLogs'),
+
+    # Internal handshake with the .cmd entry point: process exit code alone is
+    # insufficient evidence of success after console interruption.
+    [string]$CompletionMarker,
+
     [switch]$NonInteractive,
 
     [switch]$NoDesktopShortcut
@@ -22,7 +28,8 @@ param(
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 
-$script:ProductVersion = '0.5.0-alpha'
+$script:ProductVersion = '0.6.0-alpha'
+Import-Module (Join-Path $PSScriptRoot 'payload\DominionWarsInstall.psm1') -Force
 $script:Exe101Hash = '62EB159F40CE580308130DD223ABF12A1EF9A00C2BD93B76ABEFF1FC1044CB25'
 $script:Exe104Hash = '03C20A3535D0209111FF9F3B90EBA403E059DF2BE7E784D2746ABF1535C1BE6A'
 $script:PatchHash = 'BB938C4CD1CC8484D5F14978065FB96431843A5304C5078D65F0C32706F904EC'
@@ -126,12 +133,13 @@ function Assert-FileHash {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
         [Parameter(Mandatory = $true)][string]$Expected,
-        [Parameter(Mandatory = $true)][string]$Description
+        [Parameter(Mandatory = $true)][string]$Description,
+        [switch]$ReportProgress
     )
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         throw "$Description was not found: '$Path'."
     }
-    $actual = Get-Sha256 $Path
+    $actual = if ($ReportProgress) { Get-DWInstallFileHash -Path $Path -Label "Verifying $Description" } else { Get-Sha256 $Path }
     if ($actual -ne $Expected) {
         throw "$Description has an unexpected SHA-256 hash ($actual). Expected $Expected."
     }
@@ -217,10 +225,8 @@ function Invoke-CabExtraction {
         [Parameter(Mandatory = $true)][int]$Index,
         [Parameter(Mandatory = $true)][string]$OutputPath
     )
-    & $Extractor e -o $Cabinet $Index $OutputPath
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $OutputPath -PathType Leaf)) {
-        throw "Cabinet extraction failed for file index $Index."
-    }
+    Invoke-DWInstallHelper -Executable $Extractor -Arguments @('e', '-o', $Cabinet, [string]$Index, $OutputPath) `
+        -ExpectedOutput $OutputPath -Label "Extracting $(Split-Path -Leaf $OutputPath) (cabinet index $Index)"
 }
 
 function Invoke-OfficialPatch {
@@ -230,16 +236,29 @@ function Invoke-OfficialPatch {
     )
 
     Assert-FileHash -Path $Patch -Expected $script:PatchHash -Description 'Official 1.04 patch'
-    Write-Host ''
-    Write-Host 'The official Dominion Wars 1.04 updater will open now.' -ForegroundColor Cyan
-    Write-Host 'Complete its prompts. The modernizer will verify the result afterward.'
+    Write-DWInstallEvent 'The official Dominion Wars 1.04 updater will open now. Complete its prompts; the modernizer will verify the result afterward.'
+    Write-DWInstallEvent 'Waiting for user interaction is normal here. To cancel this stage, close the official updater and wait for it to exit.'
     $process = Start-Process -FilePath $Patch -ArgumentList @(('"' + $GameRoot + '"')) `
         -WorkingDirectory $GameRoot -PassThru
-    $process.WaitForExit()
-    $process.Refresh()
-    if ($process.ExitCode -ne 0) {
-        throw "The official patch exited with code $($process.ExitCode)."
+    try {
+        $patchStarted = [DateTime]::UtcNow; $lastReport = $patchStarted
+        while (-not $process.WaitForExit(200)) {
+            if (([DateTime]::UtcNow - $lastReport).TotalSeconds -ge 5) {
+                Write-DWInstallEvent ("Waiting for official updater to finish; check its window for prompts. Elapsed {0:N0}s; no automatic timeout." -f ([DateTime]::UtcNow - $patchStarted).TotalSeconds)
+                $lastReport = [DateTime]::UtcNow
+            }
+        }
+        $process.Refresh()
+        if ($process.ExitCode -ne 0) {
+            throw "The official patch exited with code $($process.ExitCode)."
+        }
     }
+    finally {
+        # Never delete staging underneath a still-running interactive updater.
+        if (-not $process.HasExited) { $process.WaitForExit() }
+        $process.Dispose()
+    }
+    Write-DWInstallEvent 'Official updater exited; verifying the resulting executable.'
     $game = Get-GameVersion $GameRoot
     if ($game.Version -ne '1.04') {
         throw "The patch did not produce the verified 1.04 executable (found $($game.Hash))."
@@ -259,7 +278,7 @@ function New-GameTreeFromMedia {
     }
     foreach ($entry in $script:CabHashes.GetEnumerator()) {
         Assert-FileHash -Path (Join-Path $MediaRoot $entry.Key) -Expected $entry.Value `
-            -Description "Retail disc $($entry.Key)"
+            -Description "retail disc $($entry.Key)" -ReportProgress
     }
     if (-not (Test-Path -LiteralPath $Extractor -PathType Leaf)) {
         throw "InstallShield 6 cabinet extractor was not found: '$Extractor'."
@@ -274,7 +293,7 @@ function New-GameTreeFromMedia {
     $extract = Join-Path $stage '.cab-extract'
     try {
         New-Item -ItemType Directory -Path $stage,$extract | Out-Null
-        Copy-Item -LiteralPath (Join-Path $MediaRoot 'rs') -Destination $stage -Recurse -Force
+        Copy-DWInstallTree -Source (Join-Path $MediaRoot 'rs') -Destination (Join-Path $stage 'rs')
         if (Test-Path -LiteralPath (Join-Path $MediaRoot 'readme.txt')) {
             Copy-Item -LiteralPath (Join-Path $MediaRoot 'readme.txt') -Destination $stage
         }
@@ -299,14 +318,17 @@ function New-GameTreeFromMedia {
             -Destination (Join-Path $stage 'rs\Missions\shipcapt.mis')
         Remove-Item -LiteralPath $extract -Recurse -Force
 
+        Write-DWInstallEvent 'Verifying reconstructed retail installation.'
         Assert-CompleteGameTree $stage
         $retail = Get-GameVersion $stage
         if ($retail.Version -ne '1.01') {
             throw "Media reconstruction did not produce the verified 1.01 executable ($($retail.Hash))."
         }
         Invoke-OfficialPatch -Patch $Patch -GameRoot $stage
+        Write-DWInstallEvent 'Verifying patched game files before committing the game directory.'
         Assert-CompleteGameTree $stage
         Move-Item -LiteralPath $stage -Destination $Target
+        Write-DWInstallEvent "Verified game directory committed at '$Target'. Compatibility setup follows; this is not yet the final success result."
     }
     finally {
         if (Test-Path -LiteralPath $stage) {
@@ -359,7 +381,7 @@ function Copy-GameTreeTransactional {
     $stage = Join-Path $parent ('.dw-stage-' + [guid]::NewGuid().ToString('N'))
     try {
         New-Item -ItemType Directory -Path $stage | Out-Null
-        Copy-Item -Path (Join-Path $Source '*') -Destination $stage -Recurse -Force
+        Copy-DWInstallTree -Source $Source -Destination $stage -Label 'Copying verified installed game'
         Assert-CompleteGameTree $stage
         Move-Item -LiteralPath $stage -Destination $Target
     }
@@ -533,6 +555,19 @@ function Show-Status {
     }
 }
 
+$operationSucceeded = $false
+$installerConsoleGuard = $null
+try {
+if ($CompletionMarker -and (Test-Path -LiteralPath $CompletionMarker)) {
+    throw 'Completion marker already exists. Refusing to reuse it.'
+}
+if ($Action -ne 'Status' -and -not $WhatIfPreference) {
+    $installerConsoleGuard = Start-DWInstallConsoleGuard
+    $null = Start-DWInstallLog -Action $Action -Root $LogDirectory
+    Write-DWInstallEvent "Modernizer $script:ProductVersion (installer revision console-guard-2); Windows $([Environment]::OSVersion.VersionString); PowerShell $($PSVersionTable.PSVersion)."
+    Write-DWInstallEvent $installerConsoleGuard.Status
+    Write-DWInstallEvent 'Disc verification and copying can take several minutes. Do not press Ctrl+C to advance a slow operation; it requests cancellation.'
+}
 $destinationPath = Get-NormalizedPath $Destination
 if ($Action -ne 'Status') { Assert-GameNotRunning -GameRoot $destinationPath }
 
@@ -542,10 +577,11 @@ switch ($Action) {
     }
 
     'Install' {
+        Write-DWInstallEvent 'Locating installation source and mounted retail media.'
         if (-not $SourcePath -and -not $MediaPath) {
             $MediaPath = Find-RetailMedia
             if ($MediaPath) {
-                Write-Host "Detected Dominion Wars retail media at '$MediaPath'." -ForegroundColor Cyan
+                Write-DWInstallEvent "Detected Dominion Wars retail media at '$MediaPath'."
             }
         }
         if ([bool]$SourcePath -eq [bool]$MediaPath) {
@@ -554,6 +590,7 @@ switch ($Action) {
 
         if ($MediaPath) {
             $media = Get-NormalizedPath $MediaPath
+            Write-DWInstallEvent 'Locating the owner-supplied official 1.04 patch. If a file-selection dialog opens, choose ds9dw1to4.exe.'
             $patch = Resolve-OfficialPatchPath $PatchPath
             $extractor = Resolve-CabExtractorPath $CabExtractorPath
             if ($PSCmdlet.ShouldProcess($destinationPath, "Reconstruct and patch Dominion Wars from '$media'")) {
@@ -589,10 +626,12 @@ switch ($Action) {
                 -not (Test-OwnedDesktopShortcut -Path $previousState.DesktopShortcut -GameRoot $destinationPath -State $previousState)) {
                 throw 'The existing desktop shortcut was modified. Use -NoDesktopShortcut to preserve it during installation.'
             }
+            Write-DWInstallEvent 'Installing and verifying compatibility files.'
             $records = Install-ManagedFiles $destinationPath
             $shortcutPath = $null
             $shortcutHash = $null; $shortcutBackup = $null
             if (-not $NoDesktopShortcut) {
+                Write-DWInstallEvent 'Creating the desktop launcher shortcut.'
                 $shortcut = Install-DesktopShortcut $destinationPath
                 $shortcutPath = $shortcut.Path; $shortcutHash = $shortcut.Hash; $shortcutBackup = $shortcut.BackupName
             }
@@ -674,4 +713,31 @@ switch ($Action) {
         }
         Show-Status $destinationPath
     }
+}
+
+if ($CompletionMarker -and $Action -eq 'Install' -and -not $WhatIfPreference) {
+    $markerStream = [IO.File]::Open($CompletionMarker, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    try {
+        $markerBytes = [Text.Encoding]::UTF8.GetBytes('Dominion Wars installation completed successfully.' + [Environment]::NewLine)
+        $markerStream.Write($markerBytes, 0, $markerBytes.Length)
+    }
+    finally { $markerStream.Dispose() }
+}
+$operationSucceeded = $true
+}
+catch {
+    if (Get-DWInstallLogPath) {
+        Write-DWInstallEvent "FAILED: $($_.Exception.GetBaseException().Message)"
+        Write-DWInstallEvent "Location: $($_.ScriptStackTrace)"
+    }
+    throw
+}
+finally {
+    try {
+        if (Get-DWInstallLogPath) {
+            $result = if ($operationSucceeded) { 'completed successfully' } else { 'did not complete (failure or cancellation); do not treat this as a successful installation' }
+            Write-DWInstallEvent "$Action $result. Log retained at $(Get-DWInstallLogPath)"
+        }
+    }
+    finally { Stop-DWInstallConsoleGuard -Guard $installerConsoleGuard }
 }

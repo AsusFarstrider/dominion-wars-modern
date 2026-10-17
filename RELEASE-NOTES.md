@@ -1,4 +1,44 @@
-# 0.5.0-alpha candidate
+# 0.6.0-alpha prerelease
+
+Installer reliability update; existing game launchers, compatibility profiles and
+graphics binaries are unchanged from 0.5.0-alpha.
+
+- Explicit installation stages and approximately five-second activity reports.
+  Hash/copy operations report measured bytes and elapsed time. Extraction reports
+  observed output bytes; a sixty-second lack of byte changes is a warning, not
+  a definitive hang diagnosis or an automatic timeout.
+- Cabinet extraction runs without an inherited interactive console, with closed
+  stdin and concurrent stdout/stderr capture. File work also runs independently
+  of console output; selected console text can still pause visible reporting.
+- Installer revision `console-guard-2` attempts to disable console QuickEdit
+  during install/repair/removal, restoring the prior mode afterward while
+  preserving later changes. Ctrl+C and global console preferences are untouched.
+- Persistent install/repair/removal logs under
+  `%LOCALAPPDATA%\Dominion Wars Modernizer\InstallLogs`, outside temporary staging.
+- An explicit completion marker prevents an exit-zero interruption from being
+  displayed as successful installation by `Install Dominion Wars.cmd`.
+- Worker cleanup waits for owned I/O/helper termination before staging removal.
+  The interactive official updater retains its normal prompts and is not killed
+  automatically; close it to cancel that stage.
+
+Forty-four new automated activity, entry-point and media-fixture checks passed,
+along with existing launcher/focus/profile/shortcut and fixture lifecycle suites.
+The cabinet test uses real private cabinet copies but placeholder resource files
+and a substituted patch step; it is not an end-to-end official updater test.
+The initial physical-CD candidate completed after Esc released a selection-related
+pause near the shortcut stage. The new guard has seventeen additional automated
+checks; its target-computer mouse-click/focus test passed, with continuous
+heartbeats for 20.2 seconds and exact original-console-mode restoration. Mounted-image and
+keyboard Ctrl+C candidate tests remain pending. See [TESTING.md](TESTING.md). No universal compatibility claim or
+claim that the original stall's precise cause has been established is made.
+
+The published 0.5.0-alpha package received a brief first-mission pass on Windows
+10 / i5-3570K / GTX 670, but its physical-CD installer stalled and needed user
+intervention. This is not a clean installer pass or longer-session validation.
+
+---
+
+# 0.5.0-alpha prerelease
 
 Early alpha for original-media owners. Tested on one Windows 11 / AMD RX 6800 XT /
 three-monitor configuration. Intel, NVIDIA, other drivers and monitor layouts

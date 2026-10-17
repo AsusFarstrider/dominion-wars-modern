@@ -1,5 +1,101 @@
 # Development validation
 
+## Candidate 0.6.0-alpha installer reliability (2026-10-16)
+
+Installer-only changes leave every game-managed launcher, profile and graphics
+binary unchanged. The new `payload/DominionWarsInstall.psm1` is used by the
+installer, not copied into the game. It uses .NET background file workers and a
+no-console native helper with closed stdin and concurrently drained stdout/stderr.
+Measured progress is reported roughly every five seconds; sixty seconds of no
+observed byte change produces a warning, not automatic termination or a claim
+that the operation is healthy. Persistent run/helper logs live outside staging.
+
+Windows PowerShell 5.1 automated validation includes streaming hash/copy results,
+large dual-stream output, argument quoting, console isolation/stdin EOF, quiet
+and failed helpers, missing/empty/stale extraction output, and cancellation that
+joins the owned child while preserving an unrelated helper. Entry-point tests
+cover copied-source install success, error logs, explicit completion markers and
+the actual batch entry's rejection of an exit-zero/no-marker result. These
+cancellation checks use a cancellation token through the same worker-finally
+cleanup path, not a physical keyboard Ctrl+C test.
+
+New suites passed: **22 activity checks, 11 entry-point checks and 11 media
+reconstruction checks**. Launcher/parser (44 checks including new-file parsing),
+focus transactions (16), recovery/profile (24), visual presets (32), shortcuts
+(8), dummy-process orchestration and the existing fixture lifecycle also passed.
+
+The real pinned i6comp helper is tested against private copies of the owner's
+three original cabinet files. Resource files in this reconstruction fixture are
+placeholders, and the interactive updater is explicitly substituted with a copy
+of the owner's verified 1.04 executable. This exercises all five extractions,
+retail executable verification, successful staging commit, failed-patch cleanup,
+failed-extraction cleanup and corrupt-cabinet rejection. It is not a playable
+installation, an official patch UI test or a physical-CD timing test. The legacy
+32-bit helper requires execution outside this development sandbox; the sandbox
+rejects it with an Illegal System DLL Relocation error before startup.
+
+The existing 21-managed-file fixture install/repair/removal checks also pass.
+Mounted-image end-to-end runs, physical Ctrl+C behavior and actual slow/read-failing
+media still need manual testing; the 0.6.0-alpha release retains these limitations.
+
+### Physical-CD result and console guard revision 2
+
+The user returned collected installation logs from the Windows 10 / GTX 670
+computer. The original 0.6.0-alpha candidate verified all three cabinets, copied
+532,770,184 resource bytes, completed all five isolated extractions, ran the
+official patch, verified the resulting game, installed compatibility files and
+ended with a successful final installation result. This run used physical media
+but reads were very fast, likely benefiting from cache; it is not a cold-disc
+performance measurement. No gameplay logs were included in this collection.
+
+The user clicked in the window, observed a pause while compatibility setup was
+displayed, and Esc released it. Timestamps place a 73.4-second gap between the
+shortcut-stage announcement and final success. The compatibility-file stage
+itself advanced to the shortcut-stage announcement after about 1.7 seconds.
+This strongly supports selection-blocked console output/main-thread progress;
+no live console-selection flag or blocked stack was captured.
+
+Installer revision `console-guard-2` attempts to disable QuickEdit only for the
+current input console before the first installer message. All other mode bits,
+including processed Ctrl+C input, remain intact. The original mode is restored
+in finally, unless later console-mode changes are detected; redirected input is
+a no-op, and failed mode/restoration calls are recorded. No registry or global
+console defaults are changed. Seventeen additional guard policy/backend checks
+cover restoration, no-console/already-disabled paths, API failures and preserving
+later changes. Simulated policy tests are not a substitute for actual mouse
+selection on the target Console Host. The revision's mouse-click behavior was
+subsequently tested as recorded below; no second full installation was needed
+for that focused check.
+`tests/Test-InstallerConsoleInteractive.ps1` exercises the same guard and logs a
+twenty-second timer without touching the game, display or registry. Its automated
+two-second smoke run used redirected input.
+
+The user then reported "Test went perfectly" on the Windows 10 computer. The
+returned console-click log independently records QuickEdit changing from
+`0x1F7` to `0x1B7` (only bit `0x40` cleared), twenty approximately one-second
+heartbeats, completion after 20.2 seconds and exact original-mode restoration.
+Together with the user's report, this is a pass for the requested mouse-click /
+focus-switch regression on that console. The timer alone does not identify which
+individual mouse/focus actions were performed. It does not validate every
+terminal host, keyboard Mark mode, forced process closure or keyboard Ctrl+C
+cancellation, nor is it a second full installation of the guard revision.
+
+### Second-system report for published 0.5.0-alpha
+
+The user reported a physical-CD install and approximately one minute in the first
+mission on Windows 10 Home build 19045, i5-3570K and GeForce GTX 670 with driver
+30.0.14.7514. The install appeared silent after media detection. Read-only SSH
+diagnostics found the resource copy complete (approximately 533 MB), while the
+first extractor was waiting with no recorded file I/O. Detached usage and cabinet
+listing probes returned promptly. The user pressed **Ctrl+C**, not Esc, after
+which installation continued and finished. The exact cause remains unconfirmed;
+console selection/input/output blockage is a hypothesis, not an established
+diagnosis. The user subsequently recalled accidentally clicking inside the
+console, making selection-related blockage more plausible; no selection state
+was captured before Ctrl+C. The installed executable independently matched the official 1.04 hash.
+This is a gameplay-startup smoke pass, not a clean installer or campaign-stability
+pass. No remote configuration changes were made during diagnosis.
+
 ## Candidate 0.5.0-alpha integration
 
 The exact revision 3b focus DLL is now a separately hash-pinned optional payload,
@@ -38,7 +134,7 @@ were unchanged. Tested ZIP SHA-256:
 The publication candidate adds updated documentation/release notes only; its
 runtime files must remain byte-identical to that tested archive.
 
-Intel/NVIDIA clean-install testing, actual different-resolution transitions and
+Clean Intel/NVIDIA installer retesting, actual different-resolution transitions and
 longer focus-mode sessions remain pending; see [new-system testing](docs/NEW-SYSTEM-TESTING.md).
 
 ## Installed stability safeguards and 1024×768 check (2026-10-13)
