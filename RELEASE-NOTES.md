@@ -40,9 +40,10 @@ intervention. This is not a clean installer pass or longer-session validation.
 
 # 0.5.0-alpha prerelease
 
-Early alpha for original-media owners. Tested on one Windows 11 / AMD RX 6800 XT /
-three-monitor configuration. Intel, NVIDIA, other drivers and monitor layouts
-remain unvalidated. This is not a universal Windows compatibility fix.
+At the original 0.5.0-alpha publication, testing covered one Windows 11 / AMD
+RX 6800 XT / three-monitor configuration; Intel/NVIDIA testing had not yet been
+performed. Later Windows 10 / Intel / NVIDIA results are recorded above and in
+[TESTING.md](TESTING.md). This is not a universal Windows compatibility fix.
 
 ## Changes
 
@@ -94,6 +95,7 @@ does not combine with visual presets. The normal baseline still has its known
 Alt+Tab restore failure.
 
 For the Intel/NVIDIA machine, follow [new-system testing](docs/NEW-SYSTEM-TESTING.md)
-and preserve logs before another run overwrites them. No equivalently validated
-Intel/NVIDIA configuration is claimed yet. Close the game before repair/removal;
+and preserve logs before another run overwrites them. The later Windows 10 /
+Intel / NVIDIA installation/startup checks do not establish equivalent optional
+focus-mode or extended-play coverage. Close the game before repair/removal;
 back up intentional configuration edits before repair resets packaged files.

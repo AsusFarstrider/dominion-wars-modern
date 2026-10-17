@@ -3,8 +3,12 @@
 Original validation date: 2026-07-19; later dated checks are recorded below.
 
 This document records the evidence behind the current Dominion Wars Modernizer
-profile. The result is validated on one Windows 11 and AMD Radeon configuration;
-it should not be read as proof of general Windows 10/11 compatibility.
+profile. The detailed rendering investigations below primarily concern the
+Windows 11 / AMD Radeon configuration. A Windows 10 / Intel Core i5-3570K /
+NVIDIA GTX 670 system has also received original-media installation and brief
+first-mission testing, plus a separate installer click/focus-guard test. Those
+results do not establish equivalent long-session or experimental-feature coverage;
+see [TESTING.md](../TESTING.md). General Windows 10/11 compatibility is not proven.
 
 ## Validated result
 

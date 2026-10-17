@@ -8,9 +8,12 @@ historical candidate additions, not part of the current validation sequence.
 
 The 0.5.0-alpha candidate packages the separate, opt-in focus mode while retaining
 stock baseline behavior. Its prototype passed a short minimize/return test on the
-known AMD system; different-mode transitions, long sessions and Intel/NVIDIA remain
+known AMD system; different-mode transitions and long focus sessions remain
 unvalidated. Packaged baseline and optional focus regressions also passed on
-2026-10-16 on that same AMD system; no other GPU has yet been validated. The current clean-install sequence is in
+2026-10-16 on that AMD system. Windows 10 / Intel Core i5-3570K / NVIDIA GTX 670
+now has original-media installation and brief first-mission evidence, plus a
+separate installer click-guard pass; optional focus mode is not validated there.
+See [the dated testing record](../TESTING.md) for the distinction. The current clean-install sequence is in
 [new-system testing](NEW-SYSTEM-TESTING.md). The 0.4 findings below are historical.
 
 Optional per-run Sharper, Enhanced 3D and Resource-saving presets now isolate
@@ -98,9 +101,11 @@ Testing has begun; the remaining sequence is:
    Confirm repeated startup/quit and mission transitions without treating those
    controls as a fix. The baseline Alt+Tab failure remains; separately test the
    optional 0.5 focus mode without treating one AMD pass as broad validation.
-3. Test NVIDIA and Intel with the packaged path, then the alternate graphics
+3. Extend the brief GTX 670 result to more NVIDIA GPUs and Intel integrated
+   graphics with the packaged path, then the alternate graphics
    launcher if needed. Record results for both rather than replacing logs.
-4. Test Windows 10 and other Windows 11 builds, single-monitor configurations,
+4. Extend Windows 10 testing beyond startup and the installer checks, and test
+   other Windows 11 builds, single-monitor configurations,
    125%/150% scaling, differing refresh rates, and hybrid-GPU laptops.
 5. Test a display without 1280×960, confirming fallback gameplay and restoration.
 6. Explore portrait primary monitors, HDR, remote/virtual displays, and GPU

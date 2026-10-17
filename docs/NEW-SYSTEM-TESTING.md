@@ -1,17 +1,19 @@
 # Testing on another computer
 
-This is an early alpha, not a promise of compatibility. The primary validated
-machine has Windows 11, an AMD RX 6800 XT and three monitors. Intel/NVIDIA systems,
-hybrid laptops and older drivers are important new tests, not already supported
-configurations. Back up any existing saves before starting.
+This is an early alpha, not a promise of compatibility. Windows 11 with an AMD
+processor / RX 6800 XT has the longer gameplay record. Windows 10 with an Intel
+i5-3570K / NVIDIA GTX 670 has original-media installation and brief first-mission
+evidence, plus a separate installer click-guard pass. Other GPUs, Intel integrated
+graphics, hybrid laptops and longer sessions still need testing. These are not
+equivalent feature-by-feature passes; see [TESTING.md](../TESTING.md).
+Back up any existing saves before starting.
 
 ## What to download and supply
 
-1. On this project's GitHub page, open **Releases** and download the candidate
-   modernizer ZIP attached to the release. If no candidate is published there,
-   do not assume the automatically generated **Source code** ZIP is the same
-   tested package; ask for the candidate. No Git, PowerShell knowledge or build
-   tools are needed to use an assembled release.
+1. Open the [0.6.0-alpha release](https://github.com/AsusFarstrider/dominion-wars-modern/releases/tag/v0.6.0-alpha)
+   and download its attached **dominion-wars-modernizer-0.6.0-alpha.zip**, not the
+   automatically generated **Source code** ZIP. No Git, PowerShell knowledge or
+   build tools are needed to use an assembled release.
 2. Right-click the downloaded ZIP, choose **Extract All**, then open the extracted
    folder. Do not run the installer from inside the ZIP.
 3. Insert your legitimate North American retail CD **or mount an image made from
@@ -81,7 +83,11 @@ Before another launch, copy the installed folder's `.dw-launcher\launcher.log`,
 the display/profile, but may replace the previous report: copy it first. Review
 logs for personal paths and hardware identifiers before sharing.
 
-Include Windows version/build, Intel and NVIDIA model(s), driver version(s),
+For installation failures, also copy the relevant run and referenced helper logs
+from `%LOCALAPPDATA%\Dominion Wars Modernizer\InstallLogs`; these do not require
+a successful game installation. Review them for personal paths before sharing.
+
+Include Windows version/build, CPU and GPU model(s), driver version(s),
 monitor count/layout/resolutions/scaling and primary display, disc edition,
 candidate version, launcher used, exact point of failure and error text. Include
 the executable hash if available (diagnostics normally records it). State whether
@@ -95,6 +101,8 @@ recorded originals and preserves modified files according to the README. Game
 assets, saves and diagnostic evidence remain. This is not a full game uninstall.
 
 The packaged baseline and optional focus-mode regressions passed on the known
-AMD system. The test used an existing verified 1.04 installation as source, not
-a new CD install. Your original-media Intel/NVIDIA installation is still a new
-compatibility test. Follow the release notes for the exact validation boundaries.
+AMD system using an existing verified 1.04 installation as source. The later
+Windows 10 / Intel / NVIDIA original-CD install and first-mission check provide
+additional but shorter coverage; its final click guard was tested separately.
+New hardware and longer sessions remain compatibility tests, not guaranteed
+successes. Follow the release notes for the exact validation boundaries.
