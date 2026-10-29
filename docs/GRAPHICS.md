@@ -20,8 +20,11 @@ by the preset code.
 
 The installed command files are `Play Dominion Wars - Sharper.cmd`,
 `Play Dominion Wars - Enhanced 3D.cmd`, and
-`Play Dominion Wars - Resource-saving.cmd`. The normal shortcut and
-`Play Dominion Wars - Baseline.cmd` use the original profile.
+`Play Dominion Wars - Resource-saving.cmd`. Visual settings remain unchanged
+on ordinary launches, but the 0.7 candidate normally adds its focus setting
+temporarily. `Play Dominion Wars - Baseline.cmd` explicitly uses stock focus
+behavior; the visual presets also retain stock focus behavior because combined
+focus/preset testing is incomplete. Record focus mode when comparing presets.
 
 Advanced combinations use the same launcher, for example:
 

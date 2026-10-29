@@ -1,6 +1,6 @@
 {
   "product": "Dominion Wars Modernizer",
-  "version": "0.6.0-alpha",
+  "version": "0.7.0-alpha",
   "files": [
     {
       "path": ".gitattributes",
@@ -19,28 +19,48 @@
     },
     {
       "path": "docs/COMPATIBILITY.md",
-      "size": 14671,
-      "sha256": "0A3B3CD12240C4AF1941360C1B1A3651125752EB5023D5A4A9FBE37C66C45833"
+      "size": 16783,
+      "sha256": "877873B0E1780E4A6ECCC4416AA37C3180F9406B7AB2885F0030FF220C9EE518"
     },
     {
       "path": "docs/GRAPHICS.md",
-      "size": 5759,
-      "sha256": "F66D04B24F6A40B6AE25D5724766D7C206A795E85BBA578BB34C63AAA37C652B"
+      "size": 6016,
+      "sha256": "6D0BBC46AF2BF67D6A01A07F48B5E5312A2E649BF137A4AB3F885EE330D204EF"
     },
     {
       "path": "docs/NEW-SYSTEM-TESTING.md",
-      "size": 6170,
-      "sha256": "1A23605CC4270CE40ED7294C7B688699C2AD6BA55AA71DF7F3204DB90F688364"
+      "size": 7368,
+      "sha256": "2ED515D5D642A78A41CB5F6A6B623F39A55FF1530E60EF63603DFBBB8C453C6F"
     },
     {
       "path": "docs/PORTABILITY.md",
-      "size": 13730,
-      "sha256": "9AE33A01484B680EB83D9A7F7B57D66ADB4CD3FCDDD931E18B9A1A797DB56F9E"
+      "size": 14544,
+      "sha256": "DD2E952B7686C9DEA6BCA3F0F6D091EA3500F5AEB8879E24C42309380A517793"
+    },
+    {
+      "path": "docs/screenshots/fleet-combat.png",
+      "size": 905462,
+      "sha256": "1C3E40B0753ED82522360CC4672BE8720F2032A526E9C0ABFEF052780DC75E13"
+    },
+    {
+      "path": "docs/screenshots/main-menu.png",
+      "size": 788109,
+      "sha256": "9C5BD979F88B8225AEC647F2EE645C1A41F4EA790C5C44838DAD2016BFA90586"
+    },
+    {
+      "path": "docs/screenshots/README.md",
+      "size": 826,
+      "sha256": "BAB9F2EF7E72260A8304CB1658B6204DF4EEE6F3CA7DC2E44E042BF66F508155"
+    },
+    {
+      "path": "docs/screenshots/steamrunner-gameplay.png",
+      "size": 757919,
+      "sha256": "A5CD467508366B05BC124FCB54122CE7E5CD9962C850298C695893D9B5AC877F"
     },
     {
       "path": "DominionWarsModernizer.ps1",
       "size": 33726,
-      "sha256": "F12919D5C8A1877D88D4E4CD10741DC2FDD497D338332EC3296AE2D1B96BB58D"
+      "sha256": "04A42458424FBE93C667BAD6CBB2B08F7AF3008647C7843837EE2FFE43665C92"
     },
     {
       "path": "Install Dominion Wars.cmd",
@@ -79,8 +99,8 @@
     },
     {
       "path": "payload/DominionWarsFocus.psm1",
-      "size": 9222,
-      "sha256": "C1EFEAFD64B5B47BCF20E4E87C3BBC08DE59DD25BB59BB27B06BCD79C898BAF0"
+      "size": 17763,
+      "sha256": "C5946CB31972F6BF1B8A5E75C398167A0FE7197C981427C63DA3F71A5A309741"
     },
     {
       "path": "payload/DominionWarsInstall.psm1",
@@ -94,8 +114,8 @@
     },
     {
       "path": "payload/Launch-DominionWars.ps1",
-      "size": 17541,
-      "sha256": "EDA2E2EE1CFB2E1CC1691DD703F07DA2806B26C3C1A49A2EDB79D5F8CDE8DE36"
+      "size": 19136,
+      "sha256": "1992F99660F11BE5D75B8C58BDFBF7AE1D17E2283BCA4A54C19D1B6D98C4F413"
     },
     {
       "path": "payload/Play Dominion Wars - 60 Hz.cmd",
@@ -104,8 +124,8 @@
     },
     {
       "path": "payload/Play Dominion Wars - Baseline.cmd",
-      "size": 89,
-      "sha256": "FAC71B0E80DDCD0233002F9BA67AC949B980F64B39897A806C366378DBABD0E6"
+      "size": 109,
+      "sha256": "C68633A65BF400B7B543F66204F2A2F6C11577DF525E8CB4919D8AFE7D500297"
     },
     {
       "path": "payload/Play Dominion Wars - D3D9On12 Graphics.cmd",
@@ -174,13 +194,13 @@
     },
     {
       "path": "README.md",
-      "size": 32889,
-      "sha256": "2A8C990B16EB7A8FF40E335EAED45648B3650C4EE7D9B29E13BF2B5A757D50E9"
+      "size": 28427,
+      "sha256": "7A6939280989E1785FE152D5CF988761AEF5228D5A2EF5FF193DD3A83A5AA0DB"
     },
     {
       "path": "RELEASE-NOTES.md",
-      "size": 5916,
-      "sha256": "D4AF441624C200CEB566CB738F46137256E48D4D997E57FF7F9173BB7A1B9203"
+      "size": 8343,
+      "sha256": "9285D7D405C52475FFE617C15681CBC5B32EEB8FDE3986D9917FF5F875A541FE"
     },
     {
       "path": "Remove Dominion Wars Modernizer.cmd",
@@ -194,13 +214,18 @@
     },
     {
       "path": "TESTING.md",
-      "size": 35357,
-      "sha256": "C7B08E89E64A5CB2CCF728114A81A2CEE4F3235F6FE14C79618FBA93EEE9188C"
+      "size": 38508,
+      "sha256": "003910AB9B715274CDBDB483613CFD9488DA5BA32D1F3A9CB45F3C51D4E56F23"
     },
     {
       "path": "tests/ExitProbe.cs",
       "size": 484,
       "sha256": "3B3D162FF433838A53E1B6C87DE53BB9DA3B5A20C3B23B1AC5C3111034E32BEB"
+    },
+    {
+      "path": "tests/Test-FocusDefaults.ps1",
+      "size": 8634,
+      "sha256": "BBEED2B5BC73175614D78E4858DCBDBE458F4D97294C6A1A77E8769EEB3AB7CC"
     },
     {
       "path": "tests/Test-FocusSession.ps1",
@@ -239,8 +264,8 @@
     },
     {
       "path": "tests/Test-LaunchOrchestration.ps1",
-      "size": 9532,
-      "sha256": "29B826300AD92C4B5D292A549871FF3049BFCBFAD4FFDD0B705920F17C1B2879"
+      "size": 12564,
+      "sha256": "CBD080A4518E6A0D7869AF93487D0DCFD0AECC2B5FD496DD1E7625342C5554B1"
     },
     {
       "path": "tests/Test-Lifecycle.ps1",
@@ -284,8 +309,8 @@
     },
     {
       "path": "third_party/DDrawCompat-focus/README.md",
-      "size": 3920,
-      "sha256": "8B04CBDD8915BA0297C7F9B01458B05DEBC5ECEB4306EB9F64BD88C383F80D5B"
+      "size": 5425,
+      "sha256": "EFD8A6E5DE6C911857562C94BBE5649C7EF78B4A61A86E2201971E3A30D2EF34"
     }
   ]
 }

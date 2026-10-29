@@ -8,10 +8,14 @@ graphics, hybrid laptops and longer sessions still need testing. These are not
 equivalent feature-by-feature passes; see [TESTING.md](../TESTING.md).
 Back up any existing saves before starting.
 
+Version 0.7 enables focus/capture support automatically when eligible. Older
+0.5/0.6 downloads need their alternate focus launcher. Record the exact package
+being tested; do not mix these behaviors.
+
 ## What to download and supply
 
-1. Open the [0.6.0-alpha release](https://github.com/AsusFarstrider/dominion-wars-modern/releases/tag/v0.6.0-alpha)
-   and download its attached **dominion-wars-modernizer-0.6.0-alpha.zip**, not the
+1. Open the [0.7.0-alpha release](https://github.com/AsusFarstrider/dominion-wars-modern/releases/tag/v0.7.0-alpha)
+   and download its attached **dominion-wars-modernizer-0.7.0-alpha.zip**, not the
    automatically generated **Source code** ZIP. No Git, PowerShell knowledge or
    build tools are needed to use an assembled release.
 2. Right-click the downloaded ZIP, choose **Extract All**, then open the extracted
@@ -37,7 +41,8 @@ Use the **Dominion Wars** desktop shortcut. Confirm the menu, a mission, mouse
 selection, one save/load and normal quit. Keep graphics/visual presets unchanged.
 The launcher briefly initializes a compatible desktop mode; DDrawCompat may then
 return the physical display to your normal resolution. That alone is not failure.
-The normal mode still has a known Alt+Tab limitation; leave Alt+Tab for Test B.
+Test focus/capture separately in Test B after the basic mission check. Stock
+fallback mode still has its known Alt+Tab limitation.
 
 The default graphics selection probes capability rather than choosing by GPU brand.
 If startup fails, preserve logs **before another run overwrites them**. Then try
@@ -47,26 +52,31 @@ treat a change in backend as an identical test. Hardware selection on hybrid
 systems remains a separate uncertainty. Do not change drivers or Windows graphics
 preferences mid-test without recording it.
 
-## Test B: optional focus mode
+## Test B: focus and screenshots
 
-After a successful normal run, open the installed game folder and double-click
-**Play Dominion Wars - Experimental Alt-Tab.cmd**. This is per-run opt-in, currently
-requires a driver-tested 1280x960 initialization mode and the verified NA 1.04
-executable, and does not combine with visual presets. If that mode is unavailable,
-continue testing the normal launcher and report the limitation.
+In 0.7, use the normal shortcut with unchanged baseline visuals;
+check the log says focus support is enabled. In published 0.6, use
+**Play Dominion Wars - Experimental Alt-Tab.cmd**. Both require a driver-tested
+1280x960 initialization mode and verified NA 1.04 executable. If unavailable,
+Auto retains ordinary startup compatibility; report the logged fallback reason.
+For a stock-wrapper comparison, 0.7 provides **Play Dominion Wars - Baseline.cmd**;
+do not treat its known Alt+Tab failure as a regression in the new focus path.
 
 1. Load a mission and **pause manually**. Automatic pause when unfocused does not
    work; simulation/audio may continue in the background.
 2. Alt+Tab away. Check the game minimizes and your desktop is usable.
 3. Alt+Tab back. Check image redraw, mouse selection and resuming gameplay.
 4. Repeat, returning by clicking its taskbar icon.
+   Also try Win+D and taskbar return. Check Space/pause and other shortcuts work
+   after return; report any `repaired stale game modifier` entries in the log.
 5. With the game focused, take a screenshot using your usual Windows shortcut.
+   Test Print Screen and Win+Shift+S separately if Windows supports them.
    Tell us the exact shortcut; if using Win+Shift+S, check both the captured image
    and input after dismissing the overlay.
 6. Quit and check your original display settings. If everything works, extend to
    a longer mission/save-load session, changing only one condition at a time.
 
-The optional launcher temporarily swaps its verified wrapper/profile and restores
+An enabled focus session temporarily swaps its verified wrapper/profile and restores
 them afterward. If interrupted, the next ordinary launch attempts recovery. If
 it reports a conflict or changed backup, stop and retain the logs/backups; use
 **Repair Dominion Wars.cmd** from the extracted package to restore packaged

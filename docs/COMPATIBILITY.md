@@ -218,6 +218,33 @@ minimize/return cycles, clean exit, exact stock-wrapper/profile restoration and
 removal of the pending swap record. Other hardware, different physical modes and
 longer focus sessions remain separate requirements.
 
+## Default focus support and remaster stability review (2026-10-28)
+
+Version 0.7.0-alpha changes the normal launcher to `FocusMode Auto`.
+It uses the exact earlier revision 3b focus DLL, not a newly rebuilt renderer.
+The original full NA 1.04 hash, baseline visuals and a driver-tested 1280×960
+startup mode are required. Smaller startup modes and nonbaseline visual presets
+retain stock focus behavior, with an explanation in diagnostics/logs. Explicit
+`Baseline` opts out; `Enabled` and the older `Experimental` alias require support.
+The baseline CMD is now an explicit stock-wrapper comparison.
+
+The Launcher, Rendering, Resolution, Textures, Master and QUANTUM Engine chats
+were reviewed. The portable input finding is stale Alt/Windows modifier flags
+after switching away; the remaster recorded two stale Windows-key returns and
+owner-confirmed recovery. The original key table maps Alt=`0x40`, Win=`0x80` in
+DWORD `0x719618`. The compatibility adaptation reads only the verified original
+game process, waits for focus and physical key release, then posts game-window
+key-ups only for stale flags. It does not import a modified executable, patch
+memory, send global input or retain the research helper's 32-return cutoff.
+
+The remaster's no-desktop-switch startup depends on a modified input-recentering
+path. Its newer rendering fixes concern diagnostic/functional-hook separation,
+asset providers and renderer-specific logging. Those are not transplanted into
+this stock-game compatibility package. Its focus DLL, texture recipe and existing
+desktop recovery are retained. The new adaptation has automated policy, polling,
+transaction and orchestration coverage; combined live capture/focus/keyboard and
+save/load regression remains pending, especially on NVIDIA/Intel graphics.
+
 ## Experiment summary
 
 | Experiment | Result |

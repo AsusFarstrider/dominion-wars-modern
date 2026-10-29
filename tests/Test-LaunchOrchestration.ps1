@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([string]$VerifiedGame)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $launcher = Join-Path $root 'payload\Launch-DominionWars.ps1'
@@ -17,8 +17,10 @@ Add-Type -TypeDefinition @'
 using System;
 public static class DominionWarsDisplayMode
 {
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential, Size=220)]
     public struct DEVMODE {
         public int dmPelsWidth, dmPelsHeight, dmDisplayFrequency, dmBitsPerPel, dmDisplayOrientation, dmPositionX, dmPositionY;
+        public short dmSize, dmDriverExtra;
     }
     public static int ApplyCalls;
     public static bool FailNextApply;
@@ -29,7 +31,7 @@ public static class DominionWarsDisplayMode
     public static string GetPrimaryDevice() { return SimulatePrimaryChange && ApplyCalls > 0 ? "REPLACEMENT-DISPLAY" : "TEST-DISPLAY"; }
     public static string GetDeviceIdentity(string d) { return "TEST-MONITOR"; }
     public static DEVMODE GetCurrent(string d) {
-        if (ApplyCalls == 0) Current = new DEVMODE { dmPelsWidth=2560, dmPelsHeight=1440, dmDisplayFrequency=144, dmBitsPerPel=32 };
+        if (ApplyCalls == 0) Current = new DEVMODE { dmSize=220, dmPelsWidth=2560, dmPelsHeight=1440, dmDisplayFrequency=144, dmBitsPerPel=32 };
         if (SimulateUserModeChange && ApplyCalls > 0) Current = new DEVMODE { dmPelsWidth=1920, dmPelsHeight=1080, dmDisplayFrequency=60, dmBitsPerPel=32 };
         return Current;
     }
@@ -53,6 +55,8 @@ $hash = (Get-FileHash -LiteralPath $profile).Hash
 & $launcher -GamePath $probe -DiagnoseOnly -GraphicsBackend Native -VisualPreset Sharper
 Assert ($LASTEXITCODE -eq 0 -and [DominionWarsDisplayMode]::ApplyCalls -eq 0) 'Diagnostics do not change displays'
 Assert ((Get-FileHash -LiteralPath $profile).Hash -eq $hash) 'Diagnostics do not edit the profile even with a backend argument'
+$initialReport=Get-Content -LiteralPath (Join-Path $scratch '.dw-launcher\diagnostics.json') -Raw | ConvertFrom-Json
+Assert ($initialReport.FocusModeRequested -eq 'Auto' -and $initialReport.FocusModeSelected -eq 'Baseline') 'Default diagnostics record guarded stock fallback for a non-game executable'
 & $launcher -GamePath $probe -FocusMode Experimental -DiagnoseOnly -NoRecoveryWatchdog
 Assert ($LASTEXITCODE -eq 0 -and [DominionWarsDisplayMode]::ApplyCalls -eq 0 -and (Get-FileHash -LiteralPath $profile).Hash -eq $hash) 'Experimental diagnostics do not swap files or change the display'
 & $launcher -GamePath $probe -FocusMode Experimental -VisualPreset Sharper -NoRecoveryWatchdog
@@ -127,4 +131,35 @@ try {
 finally { $mutex.ReleaseMutex(); $mutex.Dispose() }
 & (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Test-MinimalModuleEnvironment.ps1') -GamePath $probe
 if ($LASTEXITCODE -ne 0) { throw 'Restricted module environment regression failed.' }
+if ($VerifiedGame) {
+    # Exercise the positive default path against exact original file identities.
+    # Only process creation is redirected to the harmless probe; the game never runs.
+    Copy-Item -LiteralPath (Join-Path $VerifiedGame 'ds9dw.exe') -Destination $scratch
+    foreach ($name in @('ddraw.dll','DDrawCompat-Focus.dll','DDrawCompat-ds9dw.ini')) {
+        Copy-Item -LiteralPath (Join-Path $root ('payload\'+$name)) -Destination $scratch -Force
+    }
+    $defaultProfileHash=(Get-FileHash -LiteralPath $profile).Hash
+    $defaultWrapperHash=(Get-FileHash -LiteralPath (Join-Path $scratch 'ddraw.dll')).Hash
+    $savedOutput=$env:DW_TEST_FOCUS_ENVIRONMENT_OUTPUT
+    $env:DW_TEST_FOCUS_ENVIRONMENT_OUTPUT=Join-Path $scratch 'default-focus-environment.txt'
+    function Start-Process {
+        param([string]$FilePath,[string]$WorkingDirectory,[switch]$PassThru)
+        Microsoft.PowerShell.Management\Start-Process -FilePath $probe -WorkingDirectory $WorkingDirectory -PassThru
+    }
+    try {
+        [DominionWarsDisplayMode]::ApplyCalls=0
+        [DominionWarsDisplayMode]::D3D12Available=$true
+        & $launcher -GamePath (Join-Path $scratch 'ds9dw.exe') -NoRecoveryWatchdog
+        Assert ($LASTEXITCODE -eq 37 -and [IO.File]::ReadAllText($env:DW_TEST_FOCUS_ENVIRONMENT_OUTPUT) -eq '1') 'Normal entry point enables focus support in the child without extra arguments'
+        $focusReport=Get-Content -LiteralPath (Join-Path $scratch '.dw-launcher\diagnostics.json') -Raw | ConvertFrom-Json
+        Assert ($focusReport.FocusModeSelected -eq 'Enabled' -and $focusReport.Profile -match 'AltTabFix = noactivateapp\(0\)') 'Default run records the actual enabled focus profile'
+        Assert ((Get-FileHash -LiteralPath $profile).Hash -eq $defaultProfileHash -and
+            (Get-FileHash -LiteralPath (Join-Path $scratch 'ddraw.dll')).Hash -eq $defaultWrapperHash -and
+            -not (Test-Path -LiteralPath (Join-Path $scratch '.dw-launcher\focus-session.json'))) 'Default child exit restores exact wrapper/profile and clears the pending transaction'
+        [DominionWarsDisplayMode]::ApplyCalls=0
+        & $launcher -GamePath (Join-Path $scratch 'ds9dw.exe') -FocusMode Baseline -NoRecoveryWatchdog
+        Assert ($LASTEXITCODE -eq 37 -and [IO.File]::ReadAllText($env:DW_TEST_FOCUS_ENVIRONMENT_OUTPUT) -eq '<unset>') 'Explicit stock fallback clears focus opt-in even for the supported original game'
+    }
+    finally { Remove-Item Function:\Start-Process; $env:DW_TEST_FOCUS_ENVIRONMENT_OUTPUT=$savedOutput }
+}
 Write-Host "PASS: orchestration checks; fake displays only. Disposable output: $scratch"

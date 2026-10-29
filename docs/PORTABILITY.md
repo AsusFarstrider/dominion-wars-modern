@@ -4,6 +4,13 @@ Current scope: compatibility and stability, not remastered assets, image-quality
 upgrades or performance experiments. The optional visual presets below are
 historical candidate additions, not part of the current validation sequence.
 
+Version 0.7 now selects the existing focus fix automatically
+for its verified game/1280×960/baseline-visual combination, with explicit stock
+opt-out and smaller-mode fallback. Guarded stale-key recovery is adapted from the
+remaster launcher; no remaster executable, asset or renderer is imported. See
+[the current review](COMPATIBILITY.md#default-focus-support-and-remaster-stability-review-2026-10-28).
+The 0.4/0.5 descriptions below document historical behavior.
+
 ## Candidate 0.4.0-alpha additions
 
 The 0.5.0-alpha candidate packages the separate, opt-in focus mode while retaining

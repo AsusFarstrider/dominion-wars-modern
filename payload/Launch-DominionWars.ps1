@@ -6,7 +6,7 @@ param(
     [ValidateRange(0, 1000)][int]$RefreshRate = 0,
     [ValidateSet('Auto', 'Profile', 'Native', 'D3D9On12')][string]$GraphicsBackend = 'Auto',
     [ValidateSet('Baseline', 'Sharper', 'Enhanced3D', 'ResourceSaving')][string]$VisualPreset = 'Baseline',
-    [ValidateSet('Baseline', 'Experimental')][string]$FocusMode = 'Baseline',
+    [ValidateSet('Auto', 'Enabled', 'Baseline', 'Experimental')][string]$FocusMode = 'Auto',
     [switch]$NoResolutionFallback,
     [switch]$DiagnoseOnly,
     [switch]$NoRecoveryWatchdog,
@@ -24,6 +24,7 @@ $logPath = $null
 $recovery = $null
 $visualPresetActive = $false
 $focusActive = $false
+$focusInputSession = $null
 $focusEnvironment = @{}
 function Write-LaunchLog([string]$Message) {
     Write-Host $Message
@@ -44,9 +45,9 @@ try {
     $game = Get-Item -LiteralPath $GamePath
     if ($game.PSIsContainer) { throw 'GamePath must point to ds9dw.exe, not a directory.' }
     if ($ResetCompatibilityProfile -and $RestoreCompatibilityProfile) { throw 'Choose reset or restore, not both.' }
-    if ($FocusMode -eq 'Experimental') {
-        if ($VisualPreset -ne 'Baseline' -or $ConfigureOnly) { throw 'Experimental Alt+Tab is a per-run baseline-visual option; do not combine it with visual presets or ConfigureOnly.' }
-        if ($Width -ne 1280 -or $Height -ne 960) { throw 'Experimental Alt+Tab currently requires the 1280x960 initialization mode. Use the normal launcher for fallback sizes.' }
+    if ($FocusMode -in @('Enabled','Experimental')) {
+        if ($VisualPreset -ne 'Baseline' -or $ConfigureOnly) { throw 'Alt+Tab support is a per-run baseline-visual option; do not combine it with visual presets or ConfigureOnly.' }
+        if ($Width -ne 1280 -or $Height -ne 960) { throw 'Alt+Tab support currently requires the 1280x960 initialization mode. Use FocusMode Auto or Baseline for fallback sizes.' }
         $NoResolutionFallback = $true
     }
     $mutex = New-Object Threading.Mutex($false, 'Local\DominionWarsModernizer.Display')
@@ -70,7 +71,7 @@ try {
     if ((Test-Path -LiteralPath $logPath) -and (Get-Item -LiteralPath $logPath).Length -gt 1MB) {
         Move-Item -LiteralPath $logPath -Destination "$logPath.previous" -Force
     }
-    Write-LaunchLog "Launcher started; backend=$GraphicsBackend; visual preset=$VisualPreset; requested=${Width}x${Height}; diagnostics=$DiagnoseOnly"
+    Write-LaunchLog "Launcher started; backend=$GraphicsBackend; visual preset=$VisualPreset; focus=$FocusMode; requested=${Width}x${Height}; diagnostics=$DiagnoseOnly"
     if (-not $DiagnoseOnly) {
         $recoveredFocus = Restore-DominionWarsFocusSession -GameRoot $game.DirectoryName
         if ($recoveredFocus) { Write-LaunchLog 'Recovered the stock wrapper and prior profile from an interrupted experimental Alt+Tab session.' }
@@ -125,17 +126,22 @@ try {
     })
     $wrapperPath = Join-Path $game.DirectoryName 'ddraw.dll'
     $wrapperHash = if (Test-Path -LiteralPath $wrapperPath -PathType Leaf) { Get-DominionWarsFileHash -Path $wrapperPath } else { $null }
+    $executableHash = Get-DominionWarsFileHash -Path $game.FullName
+    $focusSelection = Resolve-DominionWarsFocusMode -Requested $FocusMode -ExecutableHash $executableHash `
+        -VisualPreset $VisualPreset -Width $(if ($chosen) { $chosen.Width } else { 0 }) `
+        -Height $(if ($chosen) { $chosen.Height } else { 0 }) -ConfigureOnly:$ConfigureOnly -DiagnoseOnly:$DiagnoseOnly
     $diagnostics = [ordered]@{
         RecordedUtc = [DateTime]::UtcNow.ToString('o'); Windows = $os; GPUs = $gpus; Screens = $screens
         PowerShellVersion = $PSVersionTable.PSVersion.ToString(); Is64BitProcess = [Environment]::Is64BitProcess
         PrimaryDevice = $device; OriginalMode = $original; RequestedMode = "${Width}x${Height}"
         PreferredRefreshRate = $RefreshRate; RecoveryWatchdogEnabled = -not $NoRecoveryWatchdog
         TestedModes = @($tested | Select-Object Width, Height, RefreshRate, DriverTestResult)
-        DefaultAdapterD3D12Available = $canD3D12; ExecutableHash = Get-DominionWarsFileHash -Path $game.FullName
+        DefaultAdapterD3D12Available = $canD3D12; ExecutableHash = $executableHash
         GraphicsBackendRequested = $GraphicsBackend; GraphicsBackendSelection = $selectedBackend
         VisualPresetRequested = $VisualPreset; VisualPresetSettings = Get-DominionWarsVisualSettings $VisualPreset
         PendingVisualPresetRecovery = Test-Path -LiteralPath (Join-Path $logRoot 'visual-preset.json') -PathType Leaf
         FocusModeRequested = $FocusMode
+        FocusModeSelected = $focusSelection.Mode; FocusModeReason = $focusSelection.Reason
         PendingFocusRecovery = Test-Path -LiteralPath (Join-Path $logRoot 'focus-session.json') -PathType Leaf
         Profile = $profile; InventoryErrors = $inventoryErrors
         WrapperHash = $wrapperHash; AdditionalDDrawCompatConfigs = $additionalConfigs
@@ -160,8 +166,9 @@ try {
             throw 'The default GPU cannot create a DirectX 12 device. Try Play Dominion Wars - Native Graphics.cmd. Hybrid GPU selection may also need adjustment in Windows Graphics settings.'
         }
         $profile = Set-DominionWarsGraphicsBackend -ProfilePath $profilePath -Backend $selectedBackend
-        if ($FocusMode -eq 'Experimental') {
+        if ($focusSelection.Mode -eq 'Enabled') {
             $snapshot = ConvertTo-DominionWarsFocusSnapshot $original
+            Initialize-DominionWarsFocusInput
             $null = Start-DominionWarsFocusSession -GameRoot $game.DirectoryName
             $focusActive = $true
             $env:DW_EXPERIMENTAL_FOCUS_GUARD = '1'
@@ -171,8 +178,9 @@ try {
             $env:DW_FOCUS_ORIGINAL_MODE = $snapshot
             $profile = [IO.File]::ReadAllText($profilePath)
             $diagnostics.WrapperHash = Get-DominionWarsFileHash $wrapperPath
-            Write-LaunchLog 'Experimental Alt+Tab enabled for this run. Pause manually; the original wrapper/profile will be restored afterward.'
+            Write-LaunchLog 'Alt+Tab and Windows screenshot support enabled for this run. Pause manually; the original wrapper/profile will be restored afterward.'
         }
+        else { Write-LaunchLog "Stock focus behavior selected: $($focusSelection.Reason) Alt+Tab return may fail with this fallback." }
         if ($VisualPreset -ne 'Baseline') {
             $null = Start-DominionWarsVisualPreset -GameRoot $game.DirectoryName -Preset $VisualPreset
             $visualPresetActive = $true
@@ -213,7 +221,23 @@ try {
             $process = Start-Process -FilePath $game.FullName -WorkingDirectory $game.DirectoryName -PassThru
             Write-LaunchLog "Game PID=$($process.Id)"
             $null = $process.Handle
-            $process.WaitForExit(); $process.Refresh()
+            try {
+                if ($focusActive) {
+                    try {
+                        $focusInputSession = Start-DominionWarsFocusInputSession -Process $process -GamePath $game.FullName
+                        Write-LaunchLog 'Guarded focus-return keyboard recovery active; no global input or game memory writes.'
+                    }
+                    catch { Write-LaunchLog "Focus keyboard recovery unavailable: $($_.Exception.Message)" }
+                }
+                if ($focusInputSession) {
+                    while (-not $process.WaitForExit(100)) {
+                        foreach ($message in @(Update-DominionWarsFocusInputSession $focusInputSession)) { Write-LaunchLog $message }
+                    }
+                }
+                else { $process.WaitForExit() }
+                $process.Refresh()
+            }
+            finally { Stop-DominionWarsFocusInputSession $focusInputSession }
             $script:sessionExitCode = $process.ExitCode
             Write-LaunchLog "Game exit code=$script:sessionExitCode"
         } -Restore {
@@ -236,7 +260,7 @@ finally {
     try {
         if ($focusActive) {
             $null = Restore-DominionWarsFocusSession -GameRoot $game.DirectoryName
-            Write-LaunchLog 'Stock wrapper and prior profile restored after experimental Alt+Tab.'
+            Write-LaunchLog 'Stock wrapper and prior profile restored after Alt+Tab session.'
         }
         if ($visualPresetActive) {
             $restoredPreset = Restore-DominionWarsVisualPreset -GameRoot $game.DirectoryName

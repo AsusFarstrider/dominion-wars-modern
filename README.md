@@ -11,13 +11,17 @@ keeps the original game and assets intact; this is not a remaster.
 
 [Install](#how-to-install) · [Troubleshooting](#troubleshooting) · [Technical information](#technical-information)
 
+**New in 0.7.0-alpha:** Alt+Tab/taskbar return and Windows screenshot support are
+enabled by default for the supported game/startup configuration. No separately
+selected experimental launcher is needed. [Download the alpha](https://github.com/AsusFarstrider/dominion-wars-modern/releases/tag/v0.7.0-alpha).
+
 ## What you'll need
 
 - A **64-bit Windows 10 or Windows 11** computer.
 - An original **North American retail Dominion Wars CD**, or a mounted image
   made from your own CD.
 - The official North American **1.04 patch**, `ds9dw1to4.exe`.
-- The [Modernizer 0.6.0-alpha release ZIP](https://github.com/AsusFarstrider/dominion-wars-modern/releases/tag/v0.6.0-alpha).
+- The [Modernizer 0.7.0-alpha release ZIP](https://github.com/AsusFarstrider/dominion-wars-modern/releases/tag/v0.7.0-alpha).
 
 The official patch is available on the historical
 [TrekCore Dominion Wars downloads page](https://gaming.trekcore.com/dominionwars/downloads.html).
@@ -40,8 +44,8 @@ CD inserted or image mounted during play wherever the original game requires it.
 
 ## How to install
 
-1. Open the [0.6.0-alpha release page](https://github.com/AsusFarstrider/dominion-wars-modern/releases/tag/v0.6.0-alpha).
-   Under **Assets**, download **`dominion-wars-modernizer-0.6.0-alpha.zip`**.
+1. Open the [0.7.0-alpha release page](https://github.com/AsusFarstrider/dominion-wars-modern/releases/tag/v0.7.0-alpha).
+   Under **Assets**, download **`dominion-wars-modernizer-0.7.0-alpha.zip`**.
    Do not choose **Source code (zip)** or **Code → Download ZIP**.
 2. Right-click the downloaded ZIP and choose **Extract All**. Open the extracted
    folder; do not run anything from inside the ZIP.
@@ -87,8 +91,29 @@ Use this shortcut or launcher rather than opening `ds9dw.exe` directly, so the
 display preparation, recovery checks and cleanup run. Only one game/launcher
 should run at a time.
 
-The normal launcher still has a known **Alt+Tab return problem**. If switching
-away is important, see the separate experimental option below.
+The normal launcher enables **Alt+Tab/taskbar return and Windows screenshot
+support** when the verified game and supported 1280×960 startup mode are available.
+Pause manually before switching away; automatic pause does not work. Try your
+usual **Print Screen** or **Win+Shift+S** shortcut, then check that game input
+works after dismissing the overlay. Windows controls what Print Screen opens;
+the Modernizer does not change that setting. Capture support is not universal.
+
+## Screenshots
+
+Screenshots supplied by the project owner from the original game running with
+the Modernizer. Original artwork and HUD are retained; these are not remaster
+images or evidence of a higher internal rendering resolution.
+
+![Fleet combat in Dominion Wars, with the original ship models and tactical HUD](docs/screenshots/fleet-combat.png)
+
+<details>
+<summary>Main menu and Steamrunner ship view</summary>
+
+![Dominion Wars main menu showing official game version 1.04](docs/screenshots/main-menu.png)
+
+![Steamrunner-class ship in a single-player mission with the original HUD](docs/screenshots/steamrunner-gameplay.png)
+
+</details>
 
 ## Optional features
 
@@ -98,7 +123,8 @@ Start with the normal desktop shortcut. Once it works, alternatives are in the
 
 | Command file | What it changes |
 |---|---|
-| `Play Dominion Wars - Experimental Alt-Tab.cmd` | Experimental minimizing and return through Alt+Tab or the taskbar. |
+| `Play Dominion Wars - Experimental Alt-Tab.cmd` | Explicitly requires the same focus fix now normally selected automatically; retained for older instructions. |
+| `Play Dominion Wars - Baseline.cmd` | Opts out of the focus fix and uses the stock wrapper; useful if the new default causes trouble. Alt+Tab may fail. |
 | `Play Dominion Wars - Native Graphics.cmd` | Lets Windows choose its default graphics route. |
 | `Play Dominion Wars - D3D9On12 Graphics.cmd` | Selects the graphics option used on the tested RX 6800 XT; requires DirectX 12 support. |
 | `Play Dominion Wars - Sharper.cmd` | Experimental sharper image scaling; does not replace textures or assets. |
@@ -106,10 +132,14 @@ Start with the normal desktop shortcut. Once it works, alternatives are in the
 | `Play Dominion Wars - Resource-saving.cmd` | Attempts a 60 FPS limit to reduce unnecessary work; not a speed boost. |
 | `Play Dominion Wars - 60 Hz.cmd` | Prefers a supported display refresh rate near 60 Hz, not necessarily exactly 60 Hz. |
 
-**Experimental Alt+Tab does not automatically pause the game. Pause manually
-before switching away.** It requires a supported 1280×960 startup mode and cannot
-be combined with the visual presets. It passed a short test on the AMD system;
-longer sessions, other GPUs and screenshot-overlay behavior still need testing.
+**Focus support does not automatically pause the game. Pause manually before
+switching away.** It requires a supported 1280×960 startup mode and cannot
+be combined with visual presets. The normal launcher retains stock focus behavior
+when it needs a smaller display fallback or a visual preset; diagnostics and the
+launch log explain that selection. The latest AMD session logged four guarded
+stale-Alt repairs and a clean exit with wrapper/profile restoration; the owner
+also supplied the screenshots above. Exact capture shortcuts, the full keyboard/
+save-load checklist, longer sessions and other-GPU testing remain separate checks.
 
 Graphics-path choices are remembered by the normal shortcut. Visual presets apply
 to one run and attempt to restore your previous settings afterward. Use only one
@@ -171,10 +201,12 @@ desktop. See [display handling](#display-selection-and-restoration) for details.
 
 ### The game will not return properly after Alt+Tab
 
-The normal launcher has a known return failure, sometimes showing
-`DDERR_NOEXCLUSIVEMODE`. The [experimental Alt+Tab launcher](#optional-features)
-is a separate, limited-tested option for future runs, not a guaranteed recovery
-for an already-broken session. Pause manually before switching away.
+Check `.dw-launcher\launcher.log` for the selected focus mode. Stock fallback
+behavior has a known return failure, sometimes showing `DDERR_NOEXCLUSIVEMODE`.
+The current default attempts the focus fix, but cannot recover every already-stuck
+session. If the new default introduces trouble, close the game and try
+**Play Dominion Wars - Baseline.cmd** for a stock-wrapper comparison; avoid
+Alt+Tab in that mode. Keep both runs' logs and pause manually before switching away.
 
 ### My desktop stayed at the wrong resolution
 
@@ -245,8 +277,8 @@ Other important limits:
 - A baseline AutoSave reload crash was observed. Later repeated-load and
   save/overwrite controls passed, but the original fault remains unresolved.
   Keep backups; successful individual tests are not a save-reliability guarantee.
-- Normal Alt+Tab remains unreliable. The optional focus mode and screenshot
-  handling are not universally validated; automatic pause does not work.
+- Stock fallback Alt+Tab remains unreliable. Default-enabled focus support and
+  screenshot handling are not universally validated; automatic pause does not work.
 - Intel integrated graphics, hybrid-GPU laptops, other GPU/driver combinations,
   Windows on ARM, unusual monitor layouts/scaling, HDR and remote/virtual
   displays need testing. Intel **CPU** testing is not Intel **GPU** testing.
@@ -311,17 +343,31 @@ which the normal capability check can choose `off` again if needed.
 `-GraphicsBackend Profile` skips that automatic adjustment.
 
 Visual presets temporarily pin filtering, scaling, MSAA and frame-limit controls,
-then restore the exact previous INI when safe. Baseline launches, including
-`Play Dominion Wars - Baseline.cmd`, do not rewrite customized visual values.
+then restore the exact previous INI when safe. Normal launches preserve customized
+visual values; `Play Dominion Wars - Baseline.cmd` also explicitly selects stock
+focus behavior. The default focus profile adds its activation setting temporarily.
 See [preset settings, limitations and recovery](docs/GRAPHICS.md).
 
-Experimental focus mode swaps in the separately hash-pinned DDrawCompat revision
-3b plus its activation profile for one run. It verifies the NA 1.04 executable
+`-FocusMode Auto` now defaults to the separately hash-pinned DDrawCompat revision
+3b plus its activation profile for one run when the supported game, baseline
+visual preset and driver-tested 1280×960 startup mode are available. It verifies the NA 1.04 executable
 and wrapper identities, backs up originals, and restores them after exit.
 A later ordinary launch attempts interrupted focus/preset recovery before starting.
 Changed/deleted files or damaged focus backups can block recovery; keep the
 evidence and use repair rather than deleting records to bypass checks.
 See [focus source, gates and build provenance](third_party/DDrawCompat-focus/README.md).
+
+`-FocusMode Baseline` opts out. `Enabled` explicitly requires the focus mode;
+the old `Experimental` name remains an alias. Auto can retain smaller display
+fallbacks without applying unvalidated focus hooks. A damaged or unexpected
+wrapper still fails verification rather than being silently accepted.
+
+Focus return also checks for stale Alt/Windows modifier flags in the exact
+original game's input state. Only after focus has returned and the physical keys
+are released does it queue key-up messages to that game's window. It does not
+write game memory, synthesize global input or modify Windows keyboard settings.
+This adapts the remaster launcher's guarded keyboard recovery, not its patched
+executable, no-desktop-switch implementation or rendering experiments.
 
 ### Display selection and restoration
 
@@ -451,7 +497,7 @@ launches the game or changes the display. Repair is not an undo of custom settin
 - [New-system testing guide](docs/NEW-SYSTEM-TESTING.md)
 - [Broader-hardware work and developer checks](docs/PORTABILITY.md)
 - [Release notes](RELEASE-NOTES.md)
-- [Published package manifest](MANIFEST.json)
+- [Package manifest](MANIFEST.json) (each release ZIP includes its own matching manifest)
 
 The accepted NA 1.04 executable SHA-256 is:
 

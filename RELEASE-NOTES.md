@@ -1,3 +1,39 @@
+# 0.7.0-alpha prerelease
+
+- Normal launches now automatically select the existing exact focus wrapper for
+  the verified North American 1.04 game with a driver-tested 1280×960 startup mode
+  and baseline visuals. This targets Alt+Tab/taskbar return and Windows capture
+  overlays, including Print Screen when Windows assigns it to clipping.
+- `Play Dominion Wars - Baseline.cmd` explicitly opts out and keeps stock focus
+  behavior. Auto also retains stock behavior for smaller display fallbacks,
+  nonbaseline visual presets and unsupported executable identities. Explicit
+  `Enabled` and the existing `Experimental` alias require the focus fix.
+- Adapted the remaster launcher's stale Alt/Windows-key recovery for the original
+  executable: exact process/file/window checks, read-only input-state access,
+  physical-key and foreground rechecks, and game-only release messages. No
+  initial-focus input injection, global input, memory writes or 32-return cutoff.
+- Existing profile/DLL backups, interrupted-session recovery, capability-based
+  graphics selection and desktop restoration remain in place. No graphics binary,
+  game executable, asset or system screenshot preference is changed by this update.
+
+Automated checks cover default selection, explicit opt-out, stock fallbacks,
+keyboard policy/polling, longer repeated focus cycles, failure isolation and
+cleanup. Existing transaction and fixture suites were rerun. The latest Windows
+11 / RX 6800 XT session used the normal Auto launcher, logged four stale-Alt
+repairs, exited with code 0 and restored the exact stock wrapper/profile. The
+owner supplied menu/gameplay screenshots, now included in the README. The exact
+capture shortcut and complete focus/input/save-load checklist were not separately
+confirmed; broader GPU and longer-session testing remain required. Existing
+0.6.0-alpha assets are unchanged.
+
+Download `dominion-wars-modernizer-0.7.0-alpha.zip`, extract all files, supply your
+original North American media or mounted image and official patch, then run
+`Install Dominion Wars.cmd`. Existing default-location installations can use
+`Repair Dominion Wars.cmd` from the new extracted package to update managed
+compatibility files; back up customizations first. This is still an early alpha.
+
+---
+
 # 0.6.0-alpha prerelease
 
 Installer reliability update; existing game launchers, compatibility profiles and

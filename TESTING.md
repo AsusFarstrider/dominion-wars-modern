@@ -1,5 +1,54 @@
 # Development validation
 
+## Candidate 0.7.0-alpha default focus/capture (2026-10-28)
+
+Version 0.7.0-alpha; existing 0.6 release assets are unchanged.
+Normal launch now uses Auto focus selection with exact original-game/1280×960/
+baseline-visual gates. Stock fallback remains explicit and automatic for unsupported
+combinations. The exact previously tested focus DLL is unchanged.
+
+New Windows PowerShell 5.1 tests: **30 default-focus/keyboard checks**, including
+initial-focus silence, physical-key and foreground gates, exact local release
+message bits, no actions for clean/unrelated modifier flags, 41 return cycles
+without a 32-action cutoff, wrong-window/read-error isolation, process-identity
+rejection and idempotent handle cleanup. Native calls in the polling fixture are
+fake; no actual input is sent, process memory read or game launched.
+
+Orchestration now optionally accepts `-VerifiedGame`: it uses the real original
+game file identity and wrapper/profile transaction, but redirects process creation
+to the harmless exit-code probe and mocks all display operations. It confirms
+normal default opt-in, selected profile/diagnostics, exact exit restoration and
+explicit stock opt-out. This does not test a live game or keyboard interaction.
+Existing focus transactions (16) and launcher/parser checks (45) passed as well.
+Recovery/profile (24), visual presets (32), shortcuts (8), and the twenty-one-file
+fixture install/repair/removal suite also passed. The production native API type
+compiled separately without executing input or process-memory operations.
+
+Reviewed the remaster chats and retained only applicable keyboard recovery;
+no no-resize patched executable, visual provider or instrumentation is imported.
+The earlier AMD focus-wrapper passes and remaster keyboard observations are
+provenance, not a combined 0.7 acceptance test. Live Print Screen, Win+Shift+S,
+Alt+Tab/taskbar/Win+D return, Space/input, save/load and normal quit remain the
+next regression, followed by other hardware and long sessions.
+
+### Subsequent owner session and screenshots (2026-10-28)
+
+The installed normal launcher recorded `focus=Auto`, enabled the pinned focus
+wrapper/profile, selected 1280×960@165 initialization on the known Windows 11 /
+RX 6800 XT desktop, and armed independent display recovery. It logged four
+game-only stale-Alt (`0x40`) repair actions, then game exit 0, desktop
+`AlreadyRestored`, and stock-wrapper/prior-profile restoration. A post-run hash
+check confirmed the exact stock DLL and packaged profile, with no pending focus
+transaction. The owner supplied five screenshots showing the original menu,
+mission and fleet gameplay; three are included in the README without edits.
+
+This is a real default-enabled session and capture evidence, not proof of every
+requested key sequence or a complete regression pass. The capture shortcut was
+not separately identified in this report. Win+D/Windows-key recovery, taskbar
+return, Space/pause, save/load, different physical resolutions, other GPUs and
+long-session coverage still need explicit results. Earlier pending-test wording
+above describes the automated-only state before this subsequent session.
+
 ## Candidate 0.6.0-alpha installer reliability (2026-10-16)
 
 Installer-only changes leave every game-managed launcher, profile and graphics

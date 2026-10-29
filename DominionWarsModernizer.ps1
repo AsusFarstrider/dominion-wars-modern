@@ -28,7 +28,7 @@ param(
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 
-$script:ProductVersion = '0.6.0-alpha'
+$script:ProductVersion = '0.7.0-alpha'
 Import-Module (Join-Path $PSScriptRoot 'payload\DominionWarsInstall.psm1') -Force
 $script:Exe101Hash = '62EB159F40CE580308130DD223ABF12A1EF9A00C2BD93B76ABEFF1FC1044CB25'
 $script:Exe104Hash = '03C20A3535D0209111FF9F3B90EBA403E059DF2BE7E784D2746ABF1535C1BE6A'
